@@ -1,0 +1,5 @@
+chromadb
+vllm
+openai
+numpy
+sentence-transformers
