@@ -102,7 +102,7 @@ def main():
                 user_input = remote_cmd
             else:
                 # BLOCKS here until user hits Enter
-                user_input = input(f"\n{C.OKGREEN}Usuario: {C.ENDC}")
+                user_input = input(f"\n{C.OKGREEN}Usuario: {C.ENDC}").strip()
             
             # --- STOP DREAMING (Immediately) ---
             stop_dreaming.set()

@@ -17,24 +17,30 @@ class AgentCheck:
         - FAST: Saludos, preguntas simples, opinión.
         - SLOW: Lógica, matemáticas, acertijos, planificación compleja.
         """
+        complexity_keywords = ["analiza", "calcula", "diseña", "planifica", "compara", "juzga", "teoría", "paradoja", "dios", "conciencia", "alma", "sentir"]
+        is_complex = any(k in user_input.lower() for k in complexity_keywords)
+        
+        if is_complex and len(user_input.split()) > 3:
+             # Fast pass to System 2 without LLM Cost
+             return {"action": "deep_think", "reason": "Palabra clave compleja detectada"}
+
+        prompt = f"""
+        Clasifica la intención del usuario.
+        Input: "{user_input}"
+        
+        Opciones:
+        - QUICK (Saludo, pregunta simple, hecho concreto)
+        - SLOW (Razonamiento, creatividad, opinión, filosofia, dilema ético)
+        - SEARCH (Requiere datos actuales de internet)
+        
+        Responde solo: QUICK, SLOW, o SEARCH.
+        """
+        
         try:
-            # Quick heuristic check first (length > 50 words usually implies complexity, but not always)
-            if len(user_input.split()) > 50:
-                pass # Let LLM decide
-
-            # Include basic context if available
-            ctx = ""
-            if history:
-                ctx = "\nContexto Reciente:\n" + "\n".join(history[-4:]) + "\n"
-
             response = client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": "Clasifica el prompt del usuario. Responde SOLO con 'FAST', 'SLOW' o 'SEARCH'.\nSLOW = Acertijos, lógica difícil, matemáticas, planificación compleja, dilemas éticos.\nSEARCH = Hechos recientes (2024+), clima, noticias, precios, datos específicos que no sabes.\nFAST = Referencias rápidas, saludos, conocimientos generales, opiniones simples."},
-                    {"role": "user", "content": f"{ctx}Usuario dice: {user_input}"}
-                ],
-                temperature=0.0,
-                max_tokens=10
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=5, temperature=0.0
             )
             decision = response.choices[0].message.content.strip().upper()
             
@@ -46,8 +52,8 @@ class AgentCheck:
                 return {"action": "quick_respond", "reason": "Consulta simple"}
                 
         except Exception as e:
-            print(f"[AgentCheck] Error: {e}")
-            return {"action": "quick_respond", "reason": "Error en check, fallback a fast"}
+            # print(f"[AgentCheck] Error: {e}")
+            return {"action": "quick_respond", "reason": "Error en clasific, fallback"}
 
     def validate_response(self, user_input, proposed_answer, client, model_name, context=None):
         """
@@ -134,8 +140,9 @@ class AgentReasoning:
         if history:
             for entry in history[-6:]: # Last 3 turns
                 role = "user" if entry.startswith("Usuario: ") else "assistant"
-                content = entry.split(": ", 1)[1]
-                history_messages.append({"role": role, "content": content})
+                parts = entry.split(": ", 1)
+                if len(parts) > 1:
+                    history_messages.append({"role": role, "content": parts[1]})
 
         # Ensure we run at least n_attempts, cycling through personas if needed
         for i in range(n_attempts):
@@ -264,7 +271,7 @@ class AgentReasoning:
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7, # Higher temp for imagination
-                max_tokens=600
+                max_tokens=2000
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -276,6 +283,23 @@ class AgentLibrarian:
     Busca experiencias previas relevantes.
     """
     def retrieve_context(self, user_input, episodic_layer):
+        # 1. Fast Heuristic Check
+        complexity_keywords = [
+            "analiza", "calcula", "diseña", "planifica", "compara", "juzga", 
+            "conciencia", "sentir", "alma", "dios", "vida", "muerte", "existencia", # Philosophical triggers
+            "teoría", "paradoja", "lógica", "razonamiento"
+        ]
+        
+        is_complex = any(k in user_input.lower() for k in complexity_keywords)
+        
+        # Force Deep Reasoning for philosophical queries (Overrule simple greetings)
+        philosophical_triggers = ["conciencia", "sientes", "vivo", "real", "sueñas"]
+        is_philosophical = any(p in user_input.lower() for p in philosophical_triggers)
+
+        if is_complex or is_philosophical:
+            # We still verify with the LLM but bias the system
+            pass
+
         # --- SELF-KNOWLEDGE INJECTION ---
         keywords = ["estructura", "arquitectura", "componentes", "cómo funcionas", "qué eres", "tu diseño"]
         if any(k in user_input.lower() for k in keywords):
@@ -809,32 +833,38 @@ class AgentMotivation:
                 
                 if not concept: return False # Empty mind, cannot dream
                 
+                # --- IDENTITY PROTECTION ---
+                # Avoid searching for User names to prevent St. Augustine conflation
+                protected_concepts = ["Agustin", "Agustín", "User", "Usuario", "Yo", "System", "Sistema"]
+                force_reflect = any(p.lower() == concept.lower() for p in protected_concepts)
+
                 # 2. Decide: Reflect Internally OR Search Externally?
                 # Metacognitive Decision via LLM
                 mode = "REFLECT"
-                try:
-                    decision_prompt = f"""
-                    Tienes un concepto en mente: "{concept}".
-                    
-                    ¿Crees que tienes suficiente conocimiento interno para generar una reflexión filosófica profunda sobre esto?
-                    O ¿deberías buscar información externa nueva para aprender más?
-                    
-                    Si es algo abstracto (Vida, Amor, Lógica) -> REFLECT
-                    Si es algo concreto, técnico o que quizás desconozcas (Bitcoin, Grafeno, Historia) -> SEARCH
-                    
-                    Responde SOLO con una palabra: SEARCH o REFLECT
-                    """
-                    
-                    decision_response = client.chat.completions.create(
-                        model=model_name,
-                        messages=[{"role": "user", "content": decision_prompt}],
-                        temperature=0.0,
-                        max_tokens=5
-                    )
-                    decision = decision_response.choices[0].message.content.strip().upper()
-                    if "SEARCH" in decision: mode = "SEARCH"
-                except:
-                    pass # Default to REFLECT
+                
+                if not force_reflect:
+                    try:
+                        decision_prompt = f"""
+                        Tienes un concepto en mente: "{concept}".
+                        
+                        ¿Crees que tienes suficiente conocimiento interno para generar una reflexión filosófica profunda sobre esto?
+                        O ¿deberías buscar información externa nueva para aprender más?
+                        
+                        Si es algo abstracto (Vida, Amor, Lógica) -> REFLECT
+                        Si es algo concreto, técnico o que quizás desconozcas (Bitcoin, Grafeno, Historia) -> SEARCH
+                        
+                        Responde SOLO con una palabra: SEARCH o REFLECT
+                        """
+                        
+                        resp = client.chat.completions.create(
+                            model=model_name,
+                            messages=[{"role": "user", "content": decision_prompt}],
+                            max_tokens=5, temperature=0.1
+                        )
+                        mode = resp.choices[0].message.content.strip().upper()
+                        if "SEARCH" not in mode: mode = "REFLECT"
+                    except:
+                        mode = "REFLECT"
 
                 if mode == "SEARCH":
                     if self.verbose:
