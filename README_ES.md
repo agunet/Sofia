@@ -95,6 +95,28 @@ Mientras chateas en `main.py` o usas el Dashboard:
 
 ---
 
+## 📜 Lista Completa de Features (V2.0)
+
+### Núcleo Cognitivo
+- [x] **Auto-Juez:** Sistema de puntuación (0-10) para validar respuestas.
+- [x] **Verificador de Hechos:** Cotejo contra el Grafo interno.
+- [x] **Perfilado de Usuario:** Detección de humor y estilo preferido.
+- [x] **Trazas de Meta-Razonamiento:** Visualización del hilo de pensamiento.
+
+### Memoria y Aprendizaje
+- [x] **Grafo Ponderado:** Nodos con scores de importancia y confianza.
+- [x] **Feedback Loop:** Castigo y eliminación de nodos ante correcciones.
+- [x] **Compresión de Memoria:** Síntesis de hechos en principios.
+- [x] **Caché de Razonamiento:** "Memoria Muscular" para problemas complejos.
+
+### Autonomía
+- [x] **Sueño Dirigido:** Capacidad de enfocar al agente autónomo.
+- [x] **Laboratorio Mental:** Motor de simulación para contrafactuales.
+- [x] **Protocolo Génesis:** Sembrado automático si el cerebro está vacío.
+- [x] **Análisis de Estrategia:** Aprendizaje de reglas retóricas.
+
+---
+
 ## 📂 Estructura del Proyecto
 
 *   `main.py`: Bucle de consciencia principal.

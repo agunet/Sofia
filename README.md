@@ -8,6 +8,8 @@ Unlike standard chatbots, she has a "brain" that learns from you, dreams when id
 
 ## 🚀 Key Innovation: "System 3" Architecture
 
+This project implements a hybrid architecture combining LLMs with Graph Databases and Vector Search.
+
 ### 1. The Dashboard (Web UI) 🖥️
 Sofía comes with a live Mission Control.
 *   **Real-time Metrics:** See the number of Nodes, Edges, and Dream Logs.
@@ -24,7 +26,7 @@ Sofía comes with a live Mission Control.
 ### 3. Persistent & Self-Healing Memory 💾
 *   **Knowledge Graph (SQLite):** Stores facts (`Sofía -> is -> AI`).
 *   **Self-Correction:** If you say "That's wrong", she hunts down the specific memory and punishes its confidence score.
-*   **Synthesis:** Algorithms compress raw data into abstract rules over time.
+*   **Synthesis:** Algorithms compress raw data into abstract rules over time (`/synthesize`).
 *   **Social Strategy:** She analyzes *how* you talk and adapts her style (Concise, Technical, ELI5).
 
 ### 4. Generative Dreaming (Autonomy) 🌌
@@ -92,6 +94,28 @@ While chatting in `main.py` or using the Dashboard inputs:
 | `/synthesize` | Triggers memory compression (Rules Extraction). |
 | `/log` | Toggles verbose logging in the terminal. |
 | `Mentira/Incorrecto` | Triggers the **Feedback Loop** analysis to fix errors. |
+
+---
+
+## 📜 Complete Feature List (V2.0)
+
+### Cognitive Core
+- [x] **Auto-Judge:** Scoring system (0-10) to validate outputs before showing them.
+- [x] **Fact Checker:** Verification system against the internal Graph.
+- [x] **User Profiling:** Detection of user mood and preferred style.
+- [x] **Meta-Reasoning Traces:** Visible thought process in the console.
+
+### Memory & Learning
+- [x] **Weighted Graph:** Nodes have Importance and Confidence scores.
+- [x] **Feedback Loop:** Strong corrections reduce confidence or delete nodes.
+- [x] **Memory Compression:** Synthesis of dispersed facts into principles.
+- [x] **Reasoning Cache:** "Muscle Memory" for repeated complex questions.
+
+### Autonomy
+- [x] **Directed Dreaming:** Ability to focus the autonomous agent on a topic.
+- [x] **Mental Laboratory:** Simulation engine for counterfactuals.
+- [x] **Genesis Protocol:** Auto-seeding of memories if the brain is empty.
+- [x] **Strategy Analysis:** Learning of rhetorical rules based on user feedback.
 
 ---
 
