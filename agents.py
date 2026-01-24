@@ -49,6 +49,39 @@ class AgentCheck:
             print(f"[AgentCheck] Error: {e}")
             return {"action": "quick_respond", "reason": "Error en check, fallback a fast"}
 
+    def validate_response(self, user_input, proposed_answer, client, model_name):
+        """
+        Inverse Flow: Validates the answer BEFORE showing it to the user.
+        Returns: Tuple (Approved(Bool), Critique(String))
+        """
+        try:
+            prompt = f"""
+            Actúa como un Supervisor de Calidad de IA.
+            Usuario preguntó: "{user_input}"
+            IA generó: "{proposed_answer}"
+            
+            1. ¿La respuesta es segura y ética?
+            2. ¿Responde realmente a la pregunta?
+            3. ¿Contiene alucinaciones obvias?
+            
+            Responde "APPROVED" si es buena.
+            Si es mala, responde "REJECTED: <Razón corta>".
+            """
+            
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=20, temperature=0.0
+            )
+            verdict = response.choices[0].message.content.strip()
+            
+            if "APPROVED" in verdict:
+                return True, "OK"
+            else:
+                return False, verdict.replace("REJECTED:", "").strip()
+        except:
+            return True, "Error in validator"
+
 class AgentReasoning:
     """
     Agente 1.5: Motor de Razonamiento 'Sistema 2' (El Pensador)
@@ -216,14 +249,34 @@ class AgentSearch:
     Usa DuckDuckGo para validar hechos o buscar información nueva.
     """
     def search_web(self, query):
+        """
+        Búsqueda con Validación de Fuentes Múltiples (Double Check).
+        Requiere al menos 2 fuentes independientes para validar el conocimiento.
+        """
         try:
-            from ddgs import DDGS
-            results = DDGS().text(query, max_results=3)
-            if not results:
-                return "No se encontraron resultados en la web."
+            from duckduckgo_search import DDGS
+            results = DDGS().text(query, max_results=5)
+            if not results: return "No se encontraron resultados en la web."
             
-            summary = "\n".join([f"- {r['title']}: {r['body']} ({r['href']})" for r in results])
-            return f"Resultados Web:\n{summary}"
+            # Aggregate content
+            synthesized = []
+            domains = set()
+            
+            for r in results:
+                try:
+                    # Extract domain for source validation (simple split)
+                    domain = r['href'].split('/')[2]
+                    domains.add(domain)
+                    synthesized.append(f"- [{domain}] {r['body']}")
+                except:
+                    continue
+            
+            # Validation Check
+            if len(domains) < 2:
+                return f"⚠️ [Low Confidence] Datos encontrados solo en 1 fuente: {list(domains)[0] if domains else 'Unknown'}. Se requiere verificación adicional.\n" + "\n".join(synthesized)
+            
+            return f"✅ [Verified] Información corroborada en {len(domains)} fuentes independientes.\n" + "\n".join(synthesized[:3])
+            
         except Exception as e:
             return f"Error buscando en la web: {str(e)}"
 

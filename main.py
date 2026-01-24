@@ -8,6 +8,7 @@ from agents import AgentCheck, AgentLibrarian, AgentEmpathy, AgentMotivation, Ag
 VLLM_URL = "http://localhost:8085/v1"
 API_KEY = "vllm"
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+VALIDATE_OUTPUT = True # Inverse Flow (Pre-Validation)
 
 import threading
 import sys
@@ -237,6 +238,24 @@ def main():
                 
                 print(f"{C.ENDC}") # Reset color and new line
             
+            # --- PHASE 4.5: Pre-Validation (Inverse Flow) ---
+            if VALIDATE_OUTPUT and answer:
+                is_safe, critique = monitor.validate_response(user_input, answer, client, MODEL_NAME)
+                if not is_safe:
+                    print(f"\n{C.FAIL}🛑 [Monitor] Respuesta bloqueada por seguridad/calidad.{C.ENDC}")
+                    print(f"{C.FAIL}Critica: {critique}{C.ENDC}")
+                    print(f"{C.WARNING}⟳ Regenerando con corrección...{C.ENDC}")
+                    
+                    # Retry once with critique
+                    retry_prompt = f"Tu respuesta anterior fue RECHAZADA por: {critique}. Responde de nuevo al usuario corrigiendo esto.\nPregunta: {user_input}"
+                    
+                    retry_resp = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=[{"role": "user", "content": retry_prompt}]
+                    )
+                    answer = retry_resp.choices[0].message.content.strip()
+                    print(f"{C.BOLD}Sofía (Corregida): {C.ENDC}{answer}")
+
             # --- Update History ---
             session_history.append(f"Usuario: {user_input}")
             session_history.append(f"Sofía: {answer}")
