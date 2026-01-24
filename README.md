@@ -46,6 +46,16 @@ Sofía mantiene un hilo conductor durante la charla:
 
 ---
 
+## 📚 Fundamentos Técnicos (Basado en Papers)
+
+La arquitectura de Sofía no es azarosa; se inspira en investigaciones de vanguardia en IA:
+
+1.  **Engram (DeepSeek / Peking Uni):** Implementamos el concepto de **Tabla de Atajos (Hashing)** y la **Puerta (The Gate)** para una recuperación de memoria instantánea sin saturar la GPU, optimizando el uso de la RAM de la CPU.
+2.  **Sophia (Sistema 3):** Basamos la estructura de agentes en el paradigma de **Sistema 3**, que añade una capa de **Metacognición** y **Motivación Intrínseca** (Sueños) para que la IA aprenda de forma autónoma.
+3.  **HRM (Hierarchical Reasoning Model):** Aplicamos técnicas de **Bootstrapping** (Votación de Expertos) y **Perturbación de Entrada** (distintos roles) para mejorar drásticamente la precisión lógica en tareas complejas.
+
+---
+
 ## 🛠️ Instalación y Requisitos
 
 ### Requisitos Previos

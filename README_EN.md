@@ -42,6 +42,16 @@ Sofía maintains a conversational thread:
 
 ---
 
+## 📚 Technical Foundations (Paper-Based)
+
+Sofía's architecture is grounded in cutting-edge AI research:
+
+1.  **Engram (DeepSeek / Peking Uni):** We implement the **Shortcut Table (Hashing)** and the **Gate** mechanism for instant memory retrieval without clogging the GPU, optimizing the use of CPU RAM.
+2.  **Sophia (System 3):** Our agent structure is based on the **System 3** paradigm, adding a layer of **Metacognition** and **Intrinsic Motivation** (Dreaming) to allow the AI to learn autonomously.
+3.  **HRM (Hierarchical Reasoning Model):** We apply **Bootstrapping** (Expert Voting) and **Input Perturbation** (multiple personas) to drastically improve logical precision in complex tasks.
+
+---
+
 ## 🛠️ Installation & Requirements
 
 ### Prerequisites
