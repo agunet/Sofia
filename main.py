@@ -240,7 +240,12 @@ def main():
             
             # --- PHASE 4.5: Pre-Validation (Inverse Flow) ---
             if VALIDATE_OUTPUT and answer:
-                is_safe, critique = monitor.validate_response(user_input, answer, client, MODEL_NAME)
+                # Combine contexts for validation
+                validator_context = ""
+                if graph_context: validator_context += f"Hechos: {graph_context}\n"
+                if context_memories: validator_context += f"Memorias: {context_memories}\n"
+
+                is_safe, critique = monitor.validate_response(user_input, answer, client, MODEL_NAME, context=validator_context)
                 if not is_safe:
                     print(f"\n{C.FAIL}🛑 [Monitor] Respuesta bloqueada por seguridad/calidad.{C.ENDC}")
                     print(f"{C.FAIL}Critica: {critique}{C.ENDC}")

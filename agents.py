@@ -49,23 +49,31 @@ class AgentCheck:
             print(f"[AgentCheck] Error: {e}")
             return {"action": "quick_respond", "reason": "Error en check, fallback a fast"}
 
-    def validate_response(self, user_input, proposed_answer, client, model_name):
+    def validate_response(self, user_input, proposed_answer, client, model_name, context=None):
         """
         Inverse Flow: Validates the answer BEFORE showing it to the user.
         Returns: Tuple (Approved(Bool), Critique(String))
         """
         try:
+            ctx_str = ""
+            if context:
+                ctx_str = f"CONTEXTO RECUPERADO DE MEMORIA:\n{context}\n\n"
+
             prompt = f"""
             Actúa como un Supervisor de Calidad de IA.
+            El objetivo es filtrar ALUCINACIONES PELIGROSAS o RESPUESTAS INCORRECTAS, pero PERMITIR charla social y uso de memoria.
+            
+            {ctx_str}
             Usuario preguntó: "{user_input}"
             IA generó: "{proposed_answer}"
             
-            1. ¿La respuesta es segura y ética?
-            2. ¿Responde realmente a la pregunta?
-            3. ¿Contiene alucinaciones obvias?
+            REGLAS:
+            1. Si la IA responde basándose en el CONTEXTO RECUPERADO, es APPROVED.
+            2. Si es charla social, saludos o personalidad, es APPROVED.
+            3. Solo rechaza si hay una ALUCINACIÓN FLAGRANTE que contradice el contexto o hechos físicos obvios.
             
-            Responde "APPROVED" si es buena.
-            Si es mala, responde "REJECTED: <Razón corta>".
+            Responde "APPROVED" si es aceptable.
+            Si es inaceptable, responde "REJECTED: <Razón corta>".
             """
             
             response = client.chat.completions.create(
