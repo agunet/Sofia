@@ -25,8 +25,14 @@ Sofía recuerda quién eres y lo que aprende, incluso después de reiniciarse.
 ### 3. Sueños Generativos (Autonomía) 🌌
 Cuando nadie interactúa con ella, Sofía no se apaga. **Entra en modo "Sueño"**:
 *   Selecciona conceptos aleatorios de su memoria.
-*   Reflexiona sobre ellos para generar **nuevas conexiones lógicas**.
+*   **Decisión Metacognitiva:** Decide si *reflexionar* internamente o *investigar* externamente.
+*   **Investigación Autónoma:** Si el tema es desconocido, busca en **DuckDuckGo** para aprender hechos nuevos sin ayuda.
 *   Expande su propio grafo de conocimiento sin intervención humana.
+
+### 4. Memoria Asociativa (Multi-Hop) 🔗
+Sofía utiliza un algoritmo de recuperación de **Nivel 2**:
+*   No solo recuerda lo directo (`Proyecto X` -> `Secreto`).
+*   Infiere conexiones de segundo orden automáticamente (`Secreto` -> `Peligroso` => `Proyecto X` es `Peligroso`).
 
 ---
 
