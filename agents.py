@@ -196,6 +196,24 @@ class AgentLibrarian:
     Busca experiencias previas relevantes.
     """
     def retrieve_context(self, user_input, episodic_layer):
+        # --- SELF-KNOWLEDGE INJECTION ---
+        keywords = ["estructura", "arquitectura", "componentes", "cómo funcionas", "qué eres", "tu diseño"]
+        if any(k in user_input.lower() for k in keywords):
+            return """
+            [AUTO-CONOCIMIENTO: ARQUITECTURA DEL SISTEMA]
+            Soy una IA basada en la arquitectura 'Sofía System 3' diseñada localmente.
+            1. Modelo Base: Qwen 2.5 7B (Ejecutado vía vLLM).
+            2. Agentes Cognitivos:
+               - Monitor (Supervisor Metacognitivo): Decide entre respuesta rápida o profunda.
+               - Bibliotecario (Librarian): Recupera contexto de experiencias pasadas.
+               - Sistema 2 (Reasoning): Debate interno con múltiples expertos.
+               - Soñador (DreamThread): Proceso en background para consolidar memoria.
+            3. Memoria Híbrida:
+               - Engram (SQLite): Grafo de conocimiento lógico.
+               - Episódica (ChromaDB): Base vectorial para contexto conversacional.
+            4. Autonomía: Capacidad de aprendizaje continuo y 'sueño' generativo.
+            """
+
         memories = episodic_layer.search_similar(user_input, n_results=3)
         if not memories:
             return "No hay recuerdos previos relevantes."
@@ -561,7 +579,11 @@ class AgentMotivation:
                             Info: "{web_data}"
                             
                             Formato: SUJETO -> PREDICADO -> OBJETO
-                            Ejemplo: Vida -> se_define_como -> Estado_biológico
+                            REGLA DE ORO: Los nodos (Sujeto y Objeto) deben ser CONCEPTOS (Máximo 4 palabras).
+                            NO uses frases enteras. Simplifica.
+                            
+                            Mal: La_ciencia_es_el_estudio_de... -> se_define_como -> Conjunto_de_conocimientos...
+                            Bien: Ciencia -> es -> Conocimiento_Sistemático
                             """
                         else:
                             if self.verbose: 
@@ -687,7 +709,13 @@ class AgentMotivation:
 
                             if s and p and o:
                                 # Standardize: Only save if subject and object are concise
-                                if len(s) < 30 and len(o) < 100:
+                                # NEW: Hard limit on word count to prevent "sentences as nodes"
+                                if len(s.split()) > 6 or len(o.split()) > 10:
+                                    if self.verbose: 
+                                        print(f"✂️ [Cleaner] Rechazado por ser muy largo: {s} -> {p} -> {o}")
+                                    continue
+
+                                if len(s) < 50 and len(o) < 150:
                                     # CHECK EXISTENCE BEFORE LOGGING
                                     if not engram_layer.exists(s, p, o):
                                         # 0. Check Contradiction
