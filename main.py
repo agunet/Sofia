@@ -2,7 +2,7 @@ import os
 import time
 from openai import OpenAI
 from memory_systems import GraphEngram, EpisodicLayer
-from agents import AgentCheck, AgentLibrarian, AgentEmpathy, AgentMotivation, AgentEvolution, AgentReasoning
+from agents import AgentCheck, AgentLibrarian, AgentEmpathy, AgentMotivation, AgentEvolution, AgentReasoning, AgentSearch
 
 # Configuration
 VLLM_URL = "http://localhost:8085/v1"
@@ -94,6 +94,7 @@ def main():
     librarian = AgentLibrarian()
     empath = AgentEmpathy()
     motivator = AgentMotivation(verbose=False) # Silent by default
+    searcher = AgentSearch()
     evolution = AgentEvolution()
     
     # 3. Ingest existing dreams (Manual or Previous)
@@ -153,7 +154,16 @@ def main():
                 # Print result immediately as it is already fully formed
                 print(f"{C.BOLD}Sofía (Pensamiento Profundo): {C.ENDC}{answer}")
                 print(f"{C.ENDC}")
-                
+            
+            elif decision["action"] == "search_web":
+                print(f"{C.OKCYAN}[Monitor] Información externa necesaria. Buscando en la web...{C.ENDC}")
+                try:
+                    search_results = searcher.search_web(user_input)
+                    print(f"{C.OKBLUE}✔ Datos encontrados.{C.ENDC}")
+                    graph_context = search_results # Override graph context with fresh web data
+                except Exception as e:
+                    print(f"{C.FAIL}[Search] Error: {e}{C.ENDC}")
+
             else:
                 # --- FAST PATH (System 1) ---
                 

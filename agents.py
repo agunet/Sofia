@@ -25,16 +25,18 @@ class AgentCheck:
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": "Clasifica el prompt del usuario. Responde SOLO con 'FAST' o 'SLOW'.\nSLOW = Acertijos, lógica difícil, matemáticas, planificación compleja, dilemas éticos profundos, trampas lógicas, preguntas con truco.\nFAST = Referencias rápidas, saludos, conocimientos generales, opiniones simples."},
+                    {"role": "system", "content": "Clasifica el prompt del usuario. Responde SOLO con 'FAST', 'SLOW' o 'SEARCH'.\nSLOW = Acertijos, lógica difícil, matemáticas, planificación compleja, dilemas éticos.\nSEARCH = Hechos recientes (2024+), clima, noticias, precios, datos específicos que no sabes.\nFAST = Referencias rápidas, saludos, conocimientos generales, opiniones simples."},
                     {"role": "user", "content": user_input}
                 ],
                 temperature=0.0,
-                max_tokens=5
+                max_tokens=10
             )
             decision = response.choices[0].message.content.strip().upper()
             
             if "SLOW" in decision:
                 return {"action": "deep_think", "reason": "Complejidad detectada"}
+            elif "SEARCH" in decision:
+                return {"action": "search_web", "reason": "Información externa necesaria"}
             else:
                 return {"action": "quick_respond", "reason": "Consulta simple"}
                 
@@ -150,6 +152,23 @@ class AgentLibrarian:
         formatted_memories = "\n".join([f"- {m}" for m in memories])
         return f"Recuerdos relevantes:\n{formatted_memories}"
 
+class AgentSearch:
+    """
+    Agente 2.5: Buscador Web (El Explorador)
+    Usa DuckDuckGo para validar hechos o buscar información nueva.
+    """
+    def search_web(self, query):
+        try:
+            from duckduckgo_search import DDGS
+            results = DDGS().text(query, max_results=3)
+            if not results:
+                return "No se encontraron resultados en la web."
+            
+            summary = "\n".join([f"- {r['title']}: {r['body']} ({r['href']})" for r in results])
+            return f"Resultados Web:\n{summary}"
+        except Exception as e:
+            return f"Error buscando en la web: {str(e)}"
+
 class AgentEmpathy:
     """
     Agente 3: Analista de Teoría de la Mente (El Empático)
@@ -244,29 +263,84 @@ class AgentMotivation:
                 
                 if not concept: return False # Empty mind, cannot dream
                 
-                # 2. Ask herself a question about it
-                # Log this synthetic "thought"
-                if self.verbose:
-                    print(f"✨ [Sueño Generativo] Reflexionando sobre: {concept}...")
-                
-                synthetic_log = {
-                   'input': f"Reflexión interna sobre: {concept}",
-                   'output': f"Buscando conexiones profundas sobre {concept}..."
-                }
-                
-                analysis_prompt = f"""
-                Estás soñando. Reflexiona sobre el concepto: "{concept}".
-                
-                Usa tu base de conocimiento latente para descubrir UNA NUEVA relación lógica o filosófica sobre esto.
-                
-                Formato: SUJETO -> PREDICADO -> OBJETO
-                
-                Ejemplos de reflexión:
-                Concepto: "Vida" => Vida -> requiere -> Energía
-                Concepto: "IA" => IA -> busca -> Optimización
-                
-                Solo produce UNA tripleta nueva que tenga sentido profundo y NO sea obvia.
-                """
+                # 2. Decide: Reflect Internally OR Search Externally?
+                # Metacognitive Decision via LLM
+                mode = "REFLECT"
+                try:
+                    decision_prompt = f"""
+                    Tienes un concepto en mente: "{concept}".
+                    
+                    ¿Crees que tienes suficiente conocimiento interno para generar una reflexión filosófica profunda sobre esto?
+                    O ¿deberías buscar información externa nueva para aprender más?
+                    
+                    Si es algo abstracto (Vida, Amor, Lógica) -> REFLECT
+                    Si es algo concreto, técnico o que quizás desconozcas (Bitcoin, Grafeno, Historia) -> SEARCH
+                    
+                    Responde SOLO con una palabra: SEARCH o REFLECT
+                    """
+                    
+                    decision_response = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": decision_prompt}],
+                        temperature=0.0,
+                        max_tokens=5
+                    )
+                    decision = decision_response.choices[0].message.content.strip().upper()
+                    if "SEARCH" in decision: mode = "SEARCH"
+                except:
+                    pass # Default to REFLECT
+
+                if mode == "SEARCH":
+                    if self.verbose:
+                        print(f"✨ [Sueño Generativo] Decisión: {mode}. Buscando en la web sobre: {concept}...")
+                    
+                    # Perform Search
+                    from duckduckgo_search import DDGS
+                    try:
+                        results = DDGS().text(f"define {concept} philosophy science", max_results=1)
+                        if results:
+                            web_data = results[0]['body']
+                            synthetic_log = {
+                               'input': f"Investigación autónoma sobre: {concept}",
+                               'output': f"He encontrado esto: {web_data}"
+                            }
+                            analysis_prompt = f"""
+                            Analiza esta información de la web y extrae UN HECHO NUEVO.
+                            
+                            Concepto: {concept}
+                            Info: "{web_data}"
+                            
+                            Formato: SUJETO -> PREDICADO -> OBJETO
+                            Ejemplo: Vida -> se_define_como -> Estado_biológico
+                            """
+                        else:
+                            mode = "REFLECT" # Fallback
+                    except:
+                        mode = "REFLECT" # Fallback
+
+                if mode == "REFLECT":
+                    # Log this synthetic "thought"
+                    if self.verbose:
+                        print(f"✨ [Sueño Generativo] Decisión: {mode}. Reflexionando internamente sobre: {concept}...")
+                    
+                    synthetic_log = {
+                       'input': f"Reflexión interna sobre: {concept}",
+                       'output': f"Buscando conexiones profundas sobre {concept}..."
+                    }
+                    
+                    analysis_prompt = f"""
+                    Estás soñando. Reflexiona sobre el concepto: "{concept}".
+                    
+                    Usa tu base de conocimiento latente para descubrir UNA NUEVA relación lógica o filosófica sobre esto.
+                    
+                    Formato: SUJETO -> PREDICADO -> OBJETO
+                    
+                    Ejemplos de reflexión:
+                    Concepto: "Vida" => Vida -> requiere -> Energía
+                    Concepto: "IA" => IA -> busca -> Optimización
+                    
+                    Solo produce UNA tripleta nueva que tenga sentido profundo y NO sea obvia.
+                    """
                 pass # Proceed using this prompt
             except:
                 return False
