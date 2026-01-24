@@ -35,6 +35,11 @@ To prevent her memory from filling with noise or hallucinations, Sofía performs
 *   **Noise Detection:** Identifies isolated nodes or nonsensical labels (e.g., too long or truncated).
 *   **Internal Judgment:** The system evaluates if a concept is useful knowledge or "garbage" before deleting it.
 
+### 5. Session Context Window (Short-term Memory) 🧠💬
+Sofía maintains a conversational thread:
+*   **Recent History:** Remembers the last turns of the current conversation.
+*   **Continuity:** Allows for follow-up questions (e.g., "Can you explain that further?") without losing context.
+
 ---
 
 ## 🛠️ Installation & Requirements

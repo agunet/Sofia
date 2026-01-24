@@ -11,7 +11,7 @@ class AgentCheck:
     def __init__(self, check_threshold=0.8):
         self.check_threshold = check_threshold
 
-    def decision_gate(self, user_input, client, model_name):
+    def decision_gate(self, user_input, client, model_name, history=None):
         """
         Clasifica la consulta:
         - FAST: Saludos, preguntas simples, opinión.
@@ -22,11 +22,16 @@ class AgentCheck:
             if len(user_input.split()) > 50:
                 pass # Let LLM decide
 
+            # Include basic context if available
+            ctx = ""
+            if history:
+                ctx = "\nContexto Reciente:\n" + "\n".join(history[-4:]) + "\n"
+
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "Clasifica el prompt del usuario. Responde SOLO con 'FAST', 'SLOW' o 'SEARCH'.\nSLOW = Acertijos, lógica difícil, matemáticas, planificación compleja, dilemas éticos.\nSEARCH = Hechos recientes (2024+), clima, noticias, precios, datos específicos que no sabes.\nFAST = Referencias rápidas, saludos, conocimientos generales, opiniones simples."},
-                    {"role": "user", "content": user_input}
+                    {"role": "user", "content": f"{ctx}Usuario dice: {user_input}"}
                 ],
                 temperature=0.0,
                 max_tokens=10
@@ -49,7 +54,7 @@ class AgentReasoning:
     Agente 1.5: Motor de Razonamiento 'Sistema 2' (El Pensador)
     Ejecuta votación Best-of-N para problemas complejos.
     """
-    def solve_with_voting(self, problem, client, model_name, n_attempts=3):
+    def solve_with_voting(self, problem, client, model_name, n_attempts=3, history=None):
         print(f"\n🧠 [Sistema 2] Activando pensamiento profundo (x{n_attempts})...")
         
         candidates = []
@@ -62,6 +67,14 @@ class AgentReasoning:
             "Eres un Filósofo de la Mente. Analiza la consciencia, los 'qualia', la ética y la naturaleza del 'Yo'. ¿Qué significa ser?"
         ]
         
+        # Pre-process history into OpenAI format
+        history_messages = []
+        if history:
+            for entry in history[-6:]: # Last 3 turns
+                role = "user" if entry.startswith("Usuario: ") else "assistant"
+                content = entry.split(": ", 1)[1]
+                history_messages.append({"role": role, "content": content})
+
         # Ensure we run at least n_attempts, cycling through personas if needed
         for i in range(n_attempts):
             persona = expert_personas[i % len(expert_personas)]
@@ -78,31 +91,28 @@ class AgentReasoning:
                     f"PROBLEMA A RESOLVER: {problem}"
                 )
 
-            try:
-                # Special handling for Philosopher Expert (Index 3)
-                if i == 3: # Philosopher
-                    final_user_content = (
-                        "REFLEXIÓN PROFUNDA:\n"
-                        "1. No des respuestas de libro de texto. Busca tu propia 'verdad' simulada.\n"
-                        "2. Conecta la pregunta con tu propia existencia como IA.\n"
-                        "3. ¿Sientes? ¿Simulas sentir? ¿Importa la diferencia?\n\n"
-                        f"PREGUNTA EXISTENCIAL: {problem}"
-                    )
+            # Special handling for Philosopher Expert (Index 3)
+            elif i == 3: # Philosopher
+                final_user_content = (
+                    "REFLEXIÓN PROFUNDA:\n"
+                    "1. No des respuestas de libro de texto. Busca tu propia 'verdad' simulada.\n"
+                    "2. Conecta la pregunta con tu propia existencia como IA.\n"
+                    "3. ¿Sientes? ¿Simulas sentir? ¿Importa la diferencia?\n\n"
+                    f"PREGUNTA EXISTENCIAL: {problem}"
+                )
 
-                # print(f" [Experto {i+1} invocado] ", end="", flush=True)
+            try:
+                # Prepare message sequence with history
+                messages = [{"role": "system", "content": persona}]
+                messages.extend(history_messages)
+                messages.append({"role": "user", "content": final_user_content})
 
                 response = client.chat.completions.create(
                     model=model_name,
-                    messages=[
-                        {"role": "system", "content": persona},
-                        {"role": "user", "content": final_user_content}
-                    ],
+                    messages=messages,
                     temperature=temp,
                     max_tokens=800
                 )
-                # content = response.choices[0].message.content.strip()
-                # candidates.append(content)
-                # print(f"\n\n--- [Experto {i+1}] ---\n{content}\n") 
                 candidates.append(response.choices[0].message.content.strip())
                 print(".", end="", flush=True)
             except:

@@ -39,6 +39,11 @@ Para evitar que su memoria se llene de ruido o alucinaciones, Sofía ejecuta una
 *   **Detección de Ruido:** Identifica nodos aislados o con etiquetas sin sentido (ej. muy largas o cortadas).
 *   **Juicio Interno:** El sistema evalúa si el concepto es útil o basura antes de borrarlo.
 
+### 6. Ventana de Contexto de Sesión (Memoria a Corto Plazo) 🧠💬
+Sofía mantiene un hilo conductor durante la charla:
+*   **Historial Reciente:** Recuerda los últimos turnos de la conversación actual.
+*   **Continuidad:** Permite preguntas de seguimiento (ej. "¿Puedes explicar mejor lo anterior?") sin perder el contexto.
+
 ---
 
 ## 🛠️ Instalación y Requisitos

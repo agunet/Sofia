@@ -105,6 +105,7 @@ def main():
         print(f"{C.OKBLUE}[Memory] Se han integrado {restored_count} sueños previos desde dreams.log.{C.ENDC}")
 
     session_logs = []
+    session_history = []
 
     print(f"\n{C.HEADER}--- INICIO DEL BUCLE DE PENSAMIENTO ---{C.ENDC}")
     print(f"{C.OKCYAN}Escribe 'salir' para terminar.{C.ENDC}")
@@ -142,15 +143,15 @@ def main():
             mood = "Neutral"
             
             # 1. Check if we need Deep Reasoning (System 2)
-            decision = monitor.decision_gate(user_input, client, MODEL_NAME)
+            decision = monitor.decision_gate(user_input, client, MODEL_NAME, history=session_history)
             
             answer = "" # Prepare variable
             
             if decision["action"] == "deep_think":
                 print(f"{C.WARNING}[Monitor] Complejidad detectada. Activando Sistema 2...{C.ENDC}")
                 reasoner = AgentReasoning() # Initialize on demand or keep persistent
-                # Execute Voting
-                answer = reasoner.solve_with_voting(user_input, client, MODEL_NAME, n_attempts=3)
+                # Execute Voting with History Context
+                answer = reasoner.solve_with_voting(user_input, client, MODEL_NAME, n_attempts=3, history=session_history)
                 print(f"\n{C.OKGREEN}✔ Conclusión Alcanzada.{C.ENDC}")
                 
                 # Print result immediately as it is already fully formed
@@ -194,14 +195,22 @@ def main():
                     full_context += f"INFORMACIÓN GRAFO (Hechos Confirmados):\n{graph_context}\n\n"
                 full_context += f"MEMORIA EPISÓDICA (Experiencias):\n{context_memories}"
 
+                # Construir mensajes con historial
+                messages = [{"role": "system", "content": adjusted_system_prompt}]
+                # Agregar últimos 6 mensajes del historial (3 turnos)
+                for entry in session_history[-6:]:
+                    role = "user" if entry.startswith("Usuario: ") else "assistant"
+                    content = entry.split(": ", 1)[1]
+                    messages.append({"role": role, "content": content})
+                
+                # Agregar contexto y mensaje actual
+                messages.append({"role": "user", "content": f"Contexto:\n{full_context}\n\nPregunta: {user_input}"})
+
                 print(f"{C.BOLD}Sofía: ", end="", flush=True)
                 
                 stream = client.chat.completions.create(
                     model=MODEL_NAME,
-                    messages=[
-                        {"role": "system", "content": adjusted_system_prompt},
-                        {"role": "user", "content": f"Contexto:\n{full_context}\n\nPregunta: {user_input}"}
-                    ],
+                    messages=messages,
                     temperature=0.7,
                     stream=True
                 )
@@ -228,6 +237,10 @@ def main():
                 
                 print(f"{C.ENDC}") # Reset color and new line
             
+            # --- Update History ---
+            session_history.append(f"Usuario: {user_input}")
+            session_history.append(f"Sofía: {answer}")
+
             # --- PHASE 5: Storage (Episodic Memory) ---
             episodic.add_episode(user_input, answer, context=mood)
             
