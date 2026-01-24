@@ -377,6 +377,55 @@ class AgentMotivation:
             
         return False
 
+
+
+    def perturb_and_validate(self, s, p, o, client, model_name):
+        """
+        Input Perturbation: Validates a relationship by testing it with a synonym.
+        Returns: Tuple (Valid(Bool), Message(String))
+        """
+        try:
+            # 1. Generate Synonym
+            syn_prompt = f"Genera UN sinónimo directo o término equivalente para el concepto '{s}'. Solo una palabra."
+            syn_response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": syn_prompt}],
+                max_tokens=5, temperature=0.5
+            )
+            synonym = syn_response.choices[0].message.content.strip()
+            
+            # Simple cleanup
+            for char in ".'\"": synonym = synonym.replace(char, "")
+            
+            if synonym.lower() == s.lower() or len(synonym) > 25:
+                return True, "No synonym found" # Skip check if no good synonym
+
+            # 2. Validate Relationship
+            val_prompt = f"""
+            Validación de Lógica Difusa.
+            
+            Hecho Original: {s} -> {p} -> {o}
+            Hecho Perturbado: {synonym} -> {p} -> {o}
+            
+            Si {s} es equivalente a {synonym}, ¿se mantiene la relación '{p}' con '{o}'?
+            Responde YES o NO.
+            """
+            
+            val_response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": val_prompt}],
+                max_tokens=3, temperature=0.0
+            )
+            decision = val_response.choices[0].message.content.strip().upper()
+            
+            if "YES" in decision:
+                return True, synonym
+            else:
+                return False, synonym
+
+        except:
+            return True, "Error" # If fails, assume valid to not block
+
     def dream_step(self, logs, engram_layer, episodic_layer, client, model_name="Qwen/Qwen2.5-1.5B-Instruct"):
         """
         Executes a SINGLE step of consolidation extracting Graph Triplets.
@@ -584,6 +633,17 @@ class AgentMotivation:
                                         should_abort = self.check_contradiction(s, p, o, engram_layer, client, model_name)
                                         
                                         if not should_abort:
+                                            # 0.5 Check Perturbation (Semantic Cross-Validation)
+                                            is_stable, synonym = self.perturb_and_validate(s, p, o, client, model_name)
+                                            
+                                            if not is_stable:
+                                                if self.verbose:
+                                                    print(f"⚠️ [Input Perturbation] Relación inestable con sinónimo '{synonym}'. Descartando.")
+                                                continue # Skip adding
+
+                                            if self.verbose and is_stable and synonym != "No synonym found":
+                                                 print(f"✅ [Cross-Validation] Relación validada con '{synonym}'.")
+
                                             # 1. Save to Graph (RAM/SQLite)
                                             engram_layer.add_triplet(s, p, o)
                                             # 2. Save to ChromaDB (Semantic)
