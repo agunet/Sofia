@@ -656,8 +656,21 @@ class AgentMotivation:
                                             print(f"\n[AgentMotivation] {log_msg}")
                                         valuable = True
                                     else:
-                                        if self.verbose:
-                                            print(f" [Repetido] {s} -> {p} -> {o}")
+                                        # It exists. But should we re-validate it?
+                                        # Stochastic Re-evaluation (10% chance)
+                                        import random
+                                        if random.random() < 0.1:
+                                            if self.verbose:
+                                                 print(f"🎲 [Re-evaluación] Verificando solidez de: {s} -> {p} -> {o}")
+                                            
+                                            is_stable, synonym = self.perturb_and_validate(s, p, o, client, model_name)
+                                            if not is_stable:
+                                                if self.verbose:
+                                                    print(f"⚠️ [Correction] Concepto existente '{s}' es débil. Eliminando.")
+                                                engram_layer.delete_triplet(s, p, o)
+                                        else:
+                                            if self.verbose:
+                                                print(f" [Repetido] {s} -> {p} -> {o}")
             else:
                 # DEBUG for User: Log why we rejected it
                 with open("debug.log", "a", encoding="utf-8") as f:
