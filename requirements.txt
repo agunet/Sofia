@@ -4,3 +4,4 @@ openai
 numpy
 sentence-transformers
 ddgs
+flask

@@ -16,22 +16,49 @@ class GraphEngram:
     def _init_db(self):
         with sqlite3.connect(self.path) as conn:
             cursor = conn.cursor()
-            # Table for entities/nodes
+            # Table for entities/nodes with Importance Scoring
+            # - importance: 0.0 to 1.0 (Significance of the concept)
+            # - access_count: How many times it has been retrieved/used
+            # - last_accessed: Timestamp
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS nodes (
                     id TEXT PRIMARY KEY,
-                    label TEXT
+                    label TEXT,
+                    importance REAL DEFAULT 0.5,
+                    access_count INTEGER DEFAULT 0,
+                    last_accessed TEXT
                 )
             """)
-            # Table for relations/edges
+            
+            # Migration check: If table exists but lacks importance, add it.
+            cursor.execute("PRAGMA table_info(nodes)")
+            columns = [info[1] for info in cursor.fetchall()]
+            if "importance" not in columns:
+                cursor.execute("ALTER TABLE nodes ADD COLUMN importance REAL DEFAULT 0.5")
+                cursor.execute("ALTER TABLE nodes ADD COLUMN access_count INTEGER DEFAULT 0")
+                cursor.execute("ALTER TABLE nodes ADD COLUMN last_accessed TEXT")
+            
+            # Table for relations/edges with Confidence Score
+            # - confidence: 0.0 to 1.0 (How certain are we of this link?)
+            # - source: Provenance (User, Web, Self-Inference)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS edges (
                     source_id TEXT,
                     relation TEXT,
                     target TEXT,
+                    confidence REAL DEFAULT 1.0,
+                    source_type TEXT DEFAULT 'User',
                     FOREIGN KEY(source_id) REFERENCES nodes(id)
                 )
             """)
+            
+            # Migration check for edges
+            cursor.execute("PRAGMA table_info(edges)")
+            edge_columns = [info[1] for info in cursor.fetchall()]
+            if "confidence" not in edge_columns:
+                cursor.execute("ALTER TABLE edges ADD COLUMN confidence REAL DEFAULT 1.0")
+                cursor.execute("ALTER TABLE edges ADD COLUMN source_type TEXT DEFAULT 'User'")
+
             # Table for raw dream logs
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS dream_journal (
@@ -43,14 +70,45 @@ class GraphEngram:
                     raw_log TEXT
                 )
             """)
+
+            # Table for Dashboard Command Queue (Remote Control)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS command_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command TEXT,
+                    status TEXT DEFAULT 'PENDING',
+                    timestamp TEXT
+                )
+            """)
             conn.commit()
+
+    def queue_command(self, command):
+        """Adds a remote command from the Dashboard."""
+        timestamp = datetime.datetime.now().isoformat()
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO command_queue (command, status, timestamp) VALUES (?, 'PENDING', ?)", (command, timestamp))
+            conn.commit()
+
+    def pop_command(self):
+        """Retrieves and clears the next pending command."""
+        cmd = None
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, command FROM command_queue WHERE status='PENDING' ORDER BY id ASC LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                cid, cmd = row
+                cursor.execute("UPDATE command_queue SET status='DONE' WHERE id=?", (cid,))
+                conn.commit()
+        return cmd
 
     def _hash(self, text):
         # Extremely robust normalization: lowercase + alphanumeric only
         clean = "".join(filter(str.isalnum, text)).lower()
         return hashlib.sha256(clean.encode()).hexdigest()
 
-    def add_triplet(self, subject, relation, target):
+    def add_triplet(self, subject, relation, target, confidence=1.0, source_type="User"):
         # Normalize subject for label
         norm_subject = subject.strip()
         if len(norm_subject) > 50: norm_subject = norm_subject[:47] + "..."
@@ -60,15 +118,22 @@ class GraphEngram:
         
         with sqlite3.connect(self.path) as conn:
             cursor = conn.cursor()
-            # 1. Ensure node exists
-            cursor.execute("INSERT OR IGNORE INTO nodes (id, label) VALUES (?, ?)", (subject_id, norm_subject))
+            # 1. Ensure node exists (Initialize with base importance 0.5)
+            # If it already exists, we might want to slightly boost importance? For now, leave as is.
+            cursor.execute("INSERT OR IGNORE INTO nodes (id, label, importance, access_count, last_accessed) VALUES (?, ?, 0.5, 0, ?)", 
+                           (subject_id, norm_subject, datetime.datetime.now().isoformat()))
             
             # 2. Check for duplicate edge
             cursor.execute("SELECT 1 FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
                            (subject_id, relation, target))
             if not cursor.fetchone():
-                cursor.execute("INSERT INTO edges (source_id, relation, target) VALUES (?, ?, ?)", 
+                cursor.execute("INSERT INTO edges (source_id, relation, target, confidence, source_type) VALUES (?, ?, ?, ?, ?)", 
+                               (subject_id, relation, target, confidence, source_type))
+            else:
+                # Reinforcement: If duplicated, boost confidence slightly?
+                cursor.execute("UPDATE edges SET confidence = MIN(1.0, confidence + 0.1) WHERE source_id = ? AND relation = ? AND target = ?",
                                (subject_id, relation, target))
+                
             conn.commit()
 
     def delete_triplet(self, subject, relation, target):
@@ -80,6 +145,33 @@ class GraphEngram:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
                            (subject_id, relation, target))
+            conn.commit()
+
+    def punish_triplet(self, subject, relation, target):
+        """Decreases confidence of a triplet based on negative feedback."""
+        subject_id = self._hash(subject.strip())
+        target = target.strip()
+        
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            # 1. Reduce confidence
+            cursor.execute("""
+                UPDATE edges 
+                SET confidence = confidence - 0.5 
+                WHERE source_id = ? AND relation = ? AND target = ?
+            """, (subject_id, relation, target))
+            
+            # 2. Check if confidence is too low -> Delete
+            cursor.execute("""
+                SELECT confidence FROM edges 
+                WHERE source_id = ? AND relation = ? AND target = ?
+            """, (subject_id, relation, target))
+            row = cursor.fetchone()
+            
+            if row and row[0] <= 0.0:
+                print(f"[Memory] Confidence dropped to {row[0]}. Deleting triplet: {subject}->{relation}->{target}")
+                self.delete_triplet(subject, relation, target)
+            
             conn.commit()
 
     def get_isolated_nodes(self):
@@ -209,6 +301,21 @@ class GraphEngram:
                         desc = ", ".join([f"{r[1]} {r[2]}" for r in rows])
                         concepts.append(f"  ↳ [Nivel 2] {label}: {desc}") # Indented visual cue
                         seen_ids.add(nid)
+            
+            # --- METRIC UPDATE: Update Usage Stats for all seen nodes ---
+            if seen_ids:
+                now = datetime.datetime.now().isoformat()
+                # Batch update for efficiency
+                for seen_id in seen_ids:
+                    cursor.execute("""
+                        UPDATE nodes 
+                        SET access_count = access_count + 1, 
+                            last_accessed = ?,
+                            importance = MIN(1.0, importance + 0.01) -- Slight boost on usage
+                        WHERE id = ?
+                    """, (now, seen_id))
+                conn.commit()
+
         return "\n".join(concepts) if concepts else None
 
     def log_dream(self, subject, predicate, object_curr):
@@ -274,6 +381,36 @@ class EpisodicLayer:
         if results['documents']:
             return results['documents'][0] # Return list of strings
         return []
+
+    # --- REASONING CACHE METHODS ---
+    def cache_reasoning(self, problem, solution):
+        """Caches a System 2 Reasoning result."""
+        timestamp = datetime.datetime.now().isoformat()
+        
+        self.collection.add(
+            documents=[problem],
+            metadatas=[{"timestamp": timestamp, "type": "reasoning_cache", "solution": solution}],
+            ids=[f"cache_{hashlib.md5(problem.encode()).hexdigest()[:12]}"]
+        )
+
+    def lookup_cache(self, problem, threshold=0.3): # Threshold indicates Distance (Lower is better in Chroma usually, but EF might vary. Default Chroma is L2 distance)
+        """
+        Checks if we have already solved a similar problem.
+        Returns solution string or None.
+        Note: ChromaDB default distance is L2 (Squared Euclidean). 0.0 = Identical.
+        A threshold of ~0.3 usually implies very high semantic similarity.
+        """
+        results = self.collection.query(
+            query_texts=[problem],
+            n_results=1,
+            where={"type": "reasoning_cache"} # Filter only cache entries
+        )
+        
+        if results['documents'] and results['distances']:
+            dist = results['distances'][0][0]
+            if dist < threshold:
+                return results['metadatas'][0][0]['solution']
+        return None
 
 # Simple test if run directly
 if __name__ == "__main__":

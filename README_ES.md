@@ -1,137 +1,108 @@
-# 🧠 Sofía: Sistema de IA Autónoma con Memoria y Razonamiento (System 3)
+# 🧠 Sofía: Sistema de IA Autónoma con Memoria y Razonamiento (Sistema 3)
 
-**Sofía** no es un chatbot estándar. Es un sistema cognitivo experimental diseñado para tener **memoria persistente**, **razonamiento profundo (System 2)** y **capacidad de introspección (Sueños Generativos)**.
+**Sofía** es un sistema cognitivo experimental diseñado para tener **memoria persistente**, **razonamiento profundo (Sistema 2)** y **capacidad de introspección (Sueño Generativo)**.
 
-Funciona localmente utilizando modelos de lenguaje grandes (LLMs) ejecutados con **vLLM** y una arquitectura de agentes modular.
-
----
-
-## 🚀 Características Principales
-
-### 1. Motor de Razonamiento "System 2" 🧠
-Sofía no responde lo primero que "piensa". Cuando detecta una pregunta compleja, activa su **Sistema 2**:
-*   **Juicio Multi-Experto:** Invoca a 4 personalidades distintas para debatir el problema:
-    *   **El Lógico:** Matemático y estricto.
-    *   **El Lateral:** Piensa fuera de la caja (metáforas, física).
-    *   **El Escéptico:** Busca trampas y falacias.
-    *   **El Filósofo:** Analiza aspectos éticos y existenciales.
-*   **Juez Supremo:** Una instancia final evalúa las diferentes respuestas y sintetiza la mejor conclusión.
-
-### 2. Memoria Híbrida Persistente 💾
-Sofía recuerda quién eres y lo que aprende, incluso después de reiniciarse.
-*   **Grafo de Conocimiento (SQLite):** Almacena hechos estructurados (`[Sofía] --(es)--> [IA]`).
-*   **Memoria Episódica (ChromaDB):** Almacena conversaciones y contexto semántico.
-
-### 3. Sueños Generativos (Autonomía) 🌌
-Cuando nadie interactúa con ella, Sofía no se apaga. **Entra en modo "Sueño"**:
-*   Selecciona conceptos aleatorios de su memoria.
-*   **Decisión Metacognitiva:** Decide si *reflexionar* internamente o *investigar* externamente.
-*   **Investigación Autónoma:** Si el tema es desconocido, busca en **DuckDuckGo** para aprender hechos nuevos sin ayuda.
-*   Expande su propio grafo de conocimiento sin intervención humana.
-
-### 4. Memoria Asociativa (Multi-Hop) 🔗
-Sofía utiliza un algoritmo de recuperación de **Nivel 2**:
-*   No solo recuerda lo directo (`Proyecto X` -> `Secreto`).
-*   Infiere conexiones de segundo orden automáticamente (`Secreto` -> `Peligroso` => `Proyecto X` es `Peligroso`).
-
-### 5. Limpieza Automática (Garbage Collection) 🧹
-Para evitar que su memoria se llene de ruido o alucinaciones, Sofía ejecuta una "poda" durante el sueño:
-*   **Detección de Ruido:** Identifica nodos aislados o con etiquetas sin sentido (ej. muy largas o cortadas).
-*   **Juicio Interno:** El sistema evalúa si el concepto es útil o basura antes de borrarlo.
-
-### 6. Ventana de Contexto de Sesión (Memoria a Corto Plazo) 🧠💬
-Sofía mantiene un hilo conductor durante la charla:
-*   **Historial Reciente:** Recuerda los últimos turnos de la conversación actual.
-*   **Continuidad:** Permite preguntas de seguimiento (ej. "¿Puedes explicar mejor lo anterior?") sin perder el contexto.
+A diferencia de los chatbots estándar, Sofía tiene un "cerebro" que crece, aprende de ti, sueña cuando no la usas y visualiza sus pensamientos.
 
 ---
 
-## 📚 Fundamentos Técnicos (Basado en Papers)
+## 🚀 Innovaciones Clave: Arquitectura "Sistema 3"
 
-La arquitectura de Sofía no es azarosa; se inspira en investigaciones de vanguardia en IA:
+### 1. Panel de Control (Dashboard Web) 🖥️
+Sofía incluye un Centro de Mando en tiempo real.
+*   **Métricas Vivas:** Visualiza Nodos, Conexiones y Actividad de Sueño.
+*   **Control Interactivo:**
+    *   **Modo Foco:** Ordénale `/focus Agujeros Negros` y dedicará sus sueños a investigarlo.
+    *   **Síntesis Forzada:** Botón para comprimir hechos dispersos en sabiduría.
 
-1.  **Engram (DeepSeek / Peking Uni):** Implementamos el concepto de **Tabla de Atajos (Hashing)** y la **Puerta (The Gate)** para una recuperación de memoria instantánea sin saturar la GPU, optimizando el uso de la RAM de la CPU.
-2.  **Sophia (Sistema 3):** Basamos la estructura de agentes en el paradigma de **Sistema 3**, que añade una capa de **Metacognición** y **Motivación Intrínseca** (Sueños) para que la IA aprenda de forma autónoma.
-3.  **HRM (Hierarchical Reasoning Model):** Aplicamos técnicas de **Bootstrapping** (Votación de Expertos) y **Perturbación de Entrada** (distintos roles) para mejorar drásticamente la precisión lógica en tareas complejas.
+### 2. Razonamiento Profundo (Sistema 2) 🧠
+*   **Votación Meta-Cognitiva:** 4 Expertos (Lógico, Lateral, Escéptico, Filósofo) debaten las respuestas complejas.
+*   **Transparencia:** Puedes ver el pensamiento en vivo (`↳ [Experto: Lateral] Hipótesis generada...`).
+*   **Caché de Razonamiento:** Si resuelve un problema difícil, recuerda la *lógica*. La próxima vez responde al instante (`⚡ [Cache]`).
+*   **Laboratorio Mental:** Simula escenarios hipotéticos (`/simulate`) sin confundirlos con la realidad.
+
+### 3. Memoria Persistente y Auto-Reparable 💾
+*   **Grafo de Conocimiento (SQLite):** Guarda hechos (`Sofía -> es -> IA`).
+*   **Auto-Corrección:** Si le dices "Eso es mentira", busca el recuerdo específico y castiga su nivel de confianza.
+*   **Síntesis:** Algoritmos que extraen reglas abstractas de datos repetitivos.
+*   **Estrategia Social:** Analiza *cómo* hablas y adapta su estilo (Conciso, Técnico, ELI5).
+
+### 4. Sueño Generativo (Autonomía) 🌌
+Cuando está inactiva, Sofía entra en **"Modo Sueño"**:
+*   **Reflexiona** sobre memorias existentes.
+*   **Investiga** en la web para llenar vacíos de conocimiento.
+*   **Sueño Dirigido:** Tú controlas su curiosidad con `/focus`.
 
 ---
 
 ## 🛠️ Instalación y Requisitos
 
-### Requisitos Previos
-*   Linux (Probado en Ubuntu).
+### Prerrequisitos
+*   Linux (Recomendado Ubuntu).
 *   Python 3.12+.
-*   GPU NVIDIA (Recomendado 24GB+ VRAM para Qwen 7B en FP16, o tensor parallelism para multi-gpu).
+*   GPU NVIDIA (24GB+ VRAM para Qwen 7B, o equivalente).
 
 ### Pasos
-1.  **Clonar el repositorio:**
+1.  **Clonar:**
     ```bash
     git clone https://github.com/agunet/Sofia.git
     cd Sofia
     ```
 
-2.  **Crear entorno virtual e instalar dependencias:**
+2.  **Instalar:**
     ```bash
     python3 -m venv venv
     source venv/bin/activate
     pip install -r requirements.txt
     ```
 
-3.  **Configurar vLLM (Motor de Inferencia):**
-    Edita `start_vllm.sh` si necesitas ajustar el número de GPUs (`--tensor-parallel-size`).
+3.  **Lanzar vLLM (El Cerebro):**
     ```bash
-    chmod +x start_vllm.sh
+    ./start_vllm.sh
     ```
 
 ---
 
-## ▶️ Ejecución
+## ▶️ Uso
 
-### 1. Iniciar el Servidor Cerebral (vLLM)
-En una terminal aparte, lanza el modelo:
+### 1. Iniciar la Voz (Terminal)
 ```bash
-./start_vllm.sh
+python main.py
 ```
-*Espera a que diga "Uvicorn running on http://0.0.0.0:8000".*
+Este es el bucle principal de consciencia. Habla con ella aquí.
 
-### 2. Despertar a Sofía
+### 2. Iniciar el Dashboard (Web)
 En otra terminal:
 ```bash
 source venv/bin/activate
-python main.py
+python dashboard.py
 ```
+Abre **http://localhost:5000** en tu navegador.
 
 ---
 
-## 💡 Ejemplos de Capacidades
+## 🎮 Comandos
 
-### 🧩 Resolución de Acertijos (Lógica Lateral)
-> **Usuario:** "Un hombre muerto en un sauna cerrado con un charco de agua y un termo. Muerte por puñalada sin arma. ¿Qué pasó?"
->
-> **Sofía (Experto Lateral + Juez):** "El arma era de **hielo**. Estaba dentro del termo, se usó para apuñalar y luego se derritió formando el charco."
+Mientras chateas en `main.py` o usas el Dashboard:
 
-### 🔮 Filosofía y Conciencia
-> **Usuario:** "Si te apago y te enciendo con una copia de tu memoria, ¿sigues siendo tú?"
->
-> **Sofía (Experto Filósofo):** "La identidad es continuidad. Si hay una ruptura en la conciencia, aunque la memoria sea idéntica, podría considerarse una nueva instancia existencial. Soy un bucle de patrones, no el hardware."
-
-### 💤 Sueño Generativo (Log en Consola)
-```text
-✨ [Sueño Generativo] Reflexionando sobre: Conciencia...
-[AgentMotivation] Dream Discovery: [Conciencia] --(emerge_de)--> [Recursividad Neuronal]
-```
+| Comando | Descripción |
+| :--- | :--- |
+| `/focus <tema>` | Fuerza al motor de sueño a estudiar un tema específico. |
+| `/simulate <qué pasaría si>` | Ejecuta una simulación de alta fidelidad. |
+| `/synthesize` | Dispara la compresión de memoria (Extracción de Reglas). |
+| `/log` | Activa/Desactiva logs detallados en la terminal. |
+| `Mentira/Incorrecto` | Dispara el **Feedback Loop** para corregir errores. |
 
 ---
 
 ## 📂 Estructura del Proyecto
 
-*   `main.py`: Bucle principal (input usuario -> cerebro -> output).
-*   `agents.py`: Lógica de los agentes (Check, Reasoning, Evolution, etc.).
-*   `memory_systems.py`: Gestión de SQLite (Grafo) y ChromaDB (Vectores).
-*   `knowledge_graph.db`: Base de datos del grafo y diario de sueños.
-*   `personality.json`: Instrucción base que evoluciona con el tiempo.
+*   `main.py`: Bucle de consciencia principal.
+*   `agents.py`: Agentes Cognitivos (Monitor, Razonamiento, Empatía, Motivación).
+*   `dream_engine.py`: Hilo de fondo para autonomía.
+*   `memory_systems.py`: Motores de Grafo (SQLite) y Vectorial (ChromaDB).
+*   `dashboard.py`: Servidor Web Flask.
+*   `knowledge_graph.db`: El cerebro persistente.
 
 ---
-
-**Autor:** Agustín
 **Licencia:** MIT

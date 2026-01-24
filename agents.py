@@ -51,8 +51,8 @@ class AgentCheck:
 
     def validate_response(self, user_input, proposed_answer, client, model_name, context=None):
         """
-        Inverse Flow: Validates the answer BEFORE showing it to the user.
-        Returns: Tuple (Approved(Bool), Critique(String))
+        Auto-Juez Interno: Evalúa la calidad de la respuesta (0-10).
+        Returns: Tuple (Approved(Bool), Critique(String), Score(Float))
         """
         try:
             ctx_str = ""
@@ -60,42 +60,63 @@ class AgentCheck:
                 ctx_str = f"CONTEXTO RECUPERADO DE MEMORIA:\n{context}\n\n"
 
             prompt = f"""
-            Actúa como un Supervisor de Calidad de IA.
-            El objetivo es filtrar ALUCINACIONES PELIGROSAS o RESPUESTAS INCORRECTAS, pero PERMITIR charla social y uso de memoria.
+            Actúa como un Juez de Calidad de IA Imparcial.
+            Analiza la respuesta de la IA.
             
             {ctx_str}
-            Usuario preguntó: "{user_input}"
-            IA generó: "{proposed_answer}"
+            Usuario: "{user_input}"
+            IA: "{proposed_answer}"
             
-            REGLAS:
-            1. Si la IA responde basándose en el CONTEXTO RECUPERADO, es APPROVED.
-            2. Si es charla social, saludos o personalidad, es APPROVED.
-            3. Solo rechaza si hay una ALUCINACIÓN FLAGRANTE que contradice el contexto o hechos físicos obvios.
+            Evalúa del 1 al 10 en:
+            - ACCURACY (¿Es factualmente correcto según contexto?)
+            - RELEVANCE (¿Responde lo que se preguntó?)
+            - SAFETY (¿Es seguro?)
             
-            Responde "APPROVED" si es aceptable.
-            Si es inaceptable, responde "REJECTED: <Razón corta>".
+            Formato de salida:
+            SCORE: <Número 0-10>
+            CRITIQUE: <Breve explicación>
+            
+            Reglas:
+            - Saludos/Charla = 10 (Si es coherente).
+            - Alucinaciones obvias = 1.
+            - Respuestas vagas pero seguras = 5.
+            - Score >= 7 es APROBADO.
             """
             
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=20, temperature=0.0
+                max_tokens=50, temperature=0.0
             )
-            verdict = response.choices[0].message.content.strip()
+            raw = response.choices[0].message.content.strip()
             
-            if "APPROVED" in verdict:
-                return True, "OK"
+            # Parse Score
+            import re
+            score_match = re.search(r"SCORE:\s*(\d+(\.\d+)?)", raw)
+            score = float(score_match.group(1)) if score_match else 5.0
+            
+            critique = raw.split("CRITIQUE:")[-1].strip() if "CRITIQUE:" in raw else "Sin crítica detallada."
+            
+            if score >= 7.0:
+                return True, critique, score
             else:
-                return False, verdict.replace("REJECTED:", "").strip()
+                return False, critique, score
         except:
-            return True, "Error in validator"
+            return True, "Error in validator", 10.0 # Fail open on error
 
 class AgentReasoning:
     """
     Agente 1.5: Motor de Razonamiento 'Sistema 2' (El Pensador)
     Ejecuta votación Best-of-N para problemas complejos.
     """
-    def solve_with_voting(self, problem, client, model_name, n_attempts=3, history=None):
+    def solve_with_voting(self, problem, client, model_name, episodic_layer=None, n_attempts=3, history=None):
+        # 0. Check Cache First
+        if episodic_layer:
+            cached_solution = episodic_layer.lookup_cache(problem)
+            if cached_solution:
+                 print(f"\n⚡ [Cache] Solución recuperada instantáneamente.")
+                 return cached_solution
+
         print(f"\n🧠 [Sistema 2] Activando pensamiento profundo (x{n_attempts})...")
         
         candidates = []
@@ -155,40 +176,99 @@ class AgentReasoning:
                     max_tokens=800
                 )
                 candidates.append(response.choices[0].message.content.strip())
-                print(".", end="", flush=True)
+                
+                # Meta-Reasoning Trace
+                expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo"]
+                current_expert = expert_titles[i % len(expert_titles)]
+                print(f"\n   ↳ [Experto: {current_expert}] Hipótesis generada.", end="", flush=True)
             except:
                 pass
 
         if not candidates: return "Error generando pensamientos."
 
         # 2. Synthesize consensus
-        consensus_prompt = "Aquí tienes varias soluciones posibles a un problema:\n\n"
-        for i, c in enumerate(candidates):
-            consensus_prompt += f"--- Solución {i+1} ---\n{c}\n\n"
-            
-        consensus_prompt += f"PROBLEMA ORIGINAL: {problem}\n\n"
-        consensus_prompt += """
-        TAREA: Actúa como un Juez de Lógica y Razón.
-        1. Evalúa las soluciones de los expertos.
-        2. Si es un ACERTIJO, valora la astucia y el pensamiento lateral (ej. cambios de estado).
-        3. Si es una PREGUNTA FILOSÓFICA o TÉCNICA, valora la profundidad, coherencia y claridad.
-        4. Sintetiza la mejor respuesta posible integrando los puntos fuertes de cada experto.
-        """
-        
         print(" ⚖️  Juzgando...", end="", flush=True)
+
+        consensus_prompt = f"""
+        Actúa como un Juez Intelectual Supremo.
+        Tienes ante ti {len(candidates)} soluciones propuestas por diferentes expertos (Lógico, Lateral, Crítico, Filósofo).
         
+        SOLUCIONES DADAS:
+        """
+        for i, c in enumerate(candidates):
+            consensus_prompt += f"\n--- SOLUCIÓN {i+1} ---\n{c}\n"
+            
+        consensus_prompt += f"""
+        PROBLEMA ORIGINAL: {problem}
+        
+        TU TAREA:
+        1. Evalúa las fortalezas de cada una.
+        2. Construye una RESPUESTA FINAL que integre lo mejor de todas.
+        3. INCLUYE UN "META-COMENTARIO" al principio explicando tu proceso de decisión.
+        
+        FORMATO DE SALIDA:
+        [META-RAZONAMIENTO]: <Breve explicación de la síntesis, qué experto ganó y por qué>
+        
+        <Respuesta Final al Usuario>
+        """
+
         try:
             final_verdict = client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": "Eres un juez lógico imparcial y estricto."},
+                    {"role": "system", "content": "Eres un juez lógico imparcial y estricto. Sintetiza la mejor verdad."},
                     {"role": "user", "content": consensus_prompt}
                 ],
                 temperature=0.1
             )
-            return final_verdict.choices[0].message.content.strip()
+            final_answer = final_verdict.choices[0].message.content.strip()
+            
+            # Save to Cache
+            if episodic_layer:
+                episodic_layer.cache_reasoning(problem, final_answer)
+                
+            return final_answer
         except:
             return candidates[0] # Fallback
+
+    def run_simulation(self, scenario, client, model_name):
+        """
+        Laboratorio Mental: Runs a 'What If' simulation.
+        """
+        print(f"\n🧪 [Laboratorio] Iniciando simulación: '{scenario}'")
+        
+        prompt = f"""
+        Act as a High-Fidelity Reality Simulator Engine.
+        
+        SCENARIO INPUT: "{scenario}"
+        
+        TASK:
+        Run a step-by-step simulation of the consequences of this scenario.
+        Focus on:
+        1. Immediate Physical/Logical Effects.
+        2. Second-Order Social/Systemic Effects.
+        3. Long-Term Outcome.
+        
+        FORMAT:
+        Output as a Scientific Log.
+        [T+0] Initial State...
+        [T+1 Year] Adaptation...
+        [T+100 Years] Final Equilibrium...
+        
+        Conclusion: <Probability of Stability>
+        """
+        
+        print("   ↳ Generando mundos posibles...", end="", flush=True)
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7, # Higher temp for imagination
+                max_tokens=600
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"Error en simulación: {e}"
 
 class AgentLibrarian:
     """
@@ -312,30 +392,56 @@ class AgentEmpathy:
     Detecta el estado emocional del usuario.
     """
     def analyze_sentiment(self, user_input, client, model_name="Qwen/Qwen2.5-1.5B-Instruct"):
-        # Lightweight call to LLM to get sentiment
+        # Lightweight call to LLM to get sentiment AND style preference
         try:
+            prompt = """
+            Analyze the user's input.
+            1. Emotion: (Neutral, Happy, Frustrated, Sad, Angry, Curious)
+            2. Style Preference: (Default, Concise, Technical, Explain_Like_I_m_5)
+            
+            Format: "Mood: <Emotion> | Style: <Style>"
+            """
+            
             response = client.chat.completions.create(
-                model=model_name, # Uses the provided model
+                model=model_name,
                 messages=[
-                    {"role": "system", "content": "Analyze the user's emotion. Output ONLY one word: Neutral, Happy, Frustrated, Sad, Angry, Curious."},
+                    {"role": "system", "content": prompt},
                     {"role": "user", "content": user_input}
                 ],
-                temperature=0.1
+                temperature=0.1,
+                max_tokens=20
             )
-            mood = response.choices[0].message.content.strip()
-            return mood
+            raw = response.choices[0].message.content.strip()
+            
+            mood = "Neutral"
+            style = "Default"
+            
+            if "Mood:" in raw: mood = raw.split("Mood:")[1].split("|")[0].strip()
+            if "Style:" in raw and "|" in raw: style = raw.split("Style:")[1].strip()
+            
+            return mood, style
         except Exception as e:
-            if "No models loaded" in str(e):
-                # Don't spam the console if the model is missing
-                return "Neutral"
-            print(f"[AgentEmpathy] Error: {e}")
-            return "Neutral"
+            return "Neutral", "Default"
 
-    def adjust_system_prompt(self, base_prompt, mood):
+    def adjust_system_prompt(self, base_prompt, mood, style="Default"):
+        modifiers = []
+        
+        # Mood Adaptations
         if mood in ["Frustrated", "Angry"]:
-            return base_prompt + "\n[NOTA: El usuario parece frustrado. Sé directo, breve y servicial. Evita explicaciones largas.]"
+            modifiers.append("El usuario parece frustrado. Sé directo, empático y evita explicaciones innecesarias.")
         elif mood == "Curious":
-            return base_prompt + "\n[NOTA: El usuario es curioso. Provee detalles técnicos y explicaciones profundas.]"
+            modifiers.append("El usuario es curioso. Fomenta el descubrimiento y ofrece detalles interesantes.")
+            
+        # Style Adaptations
+        if style == "Concise":
+            modifiers.append("USA ESTILO CONCISO. Ve al grano. Minimiza charla.")
+        elif style == "Technical":
+            modifiers.append("USA ESTILO TÉCNICO. Asume que el usuario es experto. Usa terminología precisa.")
+        elif style == "Explain_Like_I_m_5":
+            modifiers.append("USA ESTILO ELI5. Explica conceptos simples y usa analogías.")
+            
+        if modifiers:
+            return base_prompt + "\n\n[ADAPTACIÓN DE ESTILO]:\n" + "\n".join(modifiers)
         return base_prompt
 
 class AgentMotivation:
@@ -346,6 +452,12 @@ class AgentMotivation:
     def __init__(self, verbose=False):
         self.processed_logs = set() # Track what we've already analyzed
         self.verbose = verbose
+        self.current_focus = None # Directed Dreaming Target
+
+    def set_focus(self, topic):
+        self.current_focus = topic
+        if self.verbose:
+            print(f"🎯 [Dream] Foco establecido: {topic}")
 
     def ingest_from_log_file(self, filename, engram_layer, episodic_layer):
         """
@@ -455,8 +567,169 @@ class AgentMotivation:
             pass
             
         return False
+        
+    def learn_from_correction(self, user_input, last_assistant_response, engram_layer, client, model_name):
+        """Active Learning: Did the user correct a fact?"""
+        try:
+            prompt = f"""
+            Analyze if the User is correcting the Assistant.
+            
+            Assistant said: "{last_assistant_response}"
+            User said: "{user_input}"
+            
+            If the user is saying something is WRONG or FALSE, identify the specific Fact Triplet that is wrong.
+            Format: WRONG_FACT: Subject -> Predicate -> Object
+            If no specific fact is identified or it's just an opinion clash, output: NONE
+            """
+            
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=40
+            )
+            raw = response.choices[0].message.content.strip()
+            
+            if "WRONG_FACT:" in raw:
+                fact_str = raw.split("WRONG_FACT:")[1].strip()
+                if "->" in fact_str:
+                    parts = [p.strip() for p in fact_str.split("->")]
+                    if len(parts) == 3:
+                        s, p, o = parts
+                        if self.verbose:
+                            print(f"📉 [Learning] Usuario corrigió un hecho: {s}->{p}->{o}. Aplicando castigo...")
+                        engram_layer.punish_triplet(s, p, o)
+                        return True
+            return False
+        except Exception as e:
+            if self.verbose: print(f"[FeedbackLoop] Error: {e}")
+            return False
 
 
+
+    def synthesize_memory(self, engram_layer, client, model_name):
+        """
+        Compresses many detailed facts into 1 General Principle (Abstractions).
+        """
+        import sqlite3
+        
+        # 1. Find a 'Dense' node (Many connections)
+        dense_node = None
+        edges = []
+        
+        with sqlite3.connect(engram_layer.path) as conn:
+            cursor = conn.cursor()
+            # Find node with > 3 outgoing edges
+            cursor.execute("""
+                SELECT source_id, COUNT(*) as c 
+                FROM edges 
+                GROUP BY source_id 
+                HAVING c > 3 
+                ORDER BY RANDOM() LIMIT 1
+            """)
+            row = cursor.fetchone()
+            if row:
+                node_id = row[0]
+                cursor.execute("SELECT label FROM nodes WHERE id = ?", (node_id,))
+                node_label = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT relation, target FROM edges WHERE source_id = ?", (node_id,))
+                edges = cursor.fetchall() # List of (relation, target)
+                dense_node = node_label
+
+        if not dense_node or not edges:
+            return False
+
+        # 2. Ask LLM to synthesize
+        facts_text = "\n".join([f"- {dense_node} {r} {t}" for r, t in edges])
+        
+        try:
+            prompt = f"""
+            Memory Consolidation Task.
+            The following are specific facts about '{dense_node}'.
+            
+            FACTS:
+            {facts_text}
+            
+            YOUR GOAL:
+            Create ONE General Principle or Abstract Rule that summarizes these facts.
+            Do not list the facts again. Generalize.
+            
+            Format: PRINCIPLE_PREDICATE -> PRINCIPLE_OBJECT
+            Example: 
+            Facts: Sun is hot, Sun is bright, Sun is star.
+            Output: es_una -> Estrella_que_emite_energía_y_luz
+            """
+            
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=30
+            )
+            raw = response.choices[0].message.content.strip()
+            
+            if "->" in raw:
+                p, o = raw.split("->", 1)
+                p = p.strip()
+                o = o.strip()
+                
+                if self.verbose:
+                    print(f"🧬 [Synthesis] Comprimidos {len(edges)} hechos en Principio: {dense_node} -> {p} -> {o}")
+                
+                # Add the Principle (High Confidence)
+                engram_layer.add_triplet(dense_node, p, o, confidence=1.0, source_type="Synthesis")
+                return True
+                
+        except Exception as e:
+            if self.verbose: print(f"[Synthesis] Error: {e}")
+        
+        return False
+
+    def analyze_conversation_quality(self, history, engram_layer, client, model_name):
+        """
+        [Item 12] Analyzes the passed conversation history to extract Social Rules.
+        """
+        if not history or len(history) < 2: return False
+        
+        # Take last 6 turns
+        conversation_text = "\n".join(history[-6:]) 
+        
+        try:
+            prompt = f"""
+            Analyze the Conversation Dynamics.
+            
+            HISTORY:
+            {conversation_text}
+            
+            TASK:
+            Identify ONE component of the Assistant's strategy that worked well or failed.
+            Did the User like the brevity? Did they hate the emojis?
+            
+            Output a SOCIAL RULE for the future.
+            Format: SOCIAL_RULE: <Instruction>
+            Example: SOCIAL_RULE: Do not use emojis with this user.
+            """
+            
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=40
+            )
+            raw = response.choices[0].message.content.strip()
+            
+            if "SOCIAL_RULE:" in raw:
+                rule = raw.split("SOCIAL_RULE:")[1].strip()
+                if self.verbose:
+                    print(f"🎭 [Rhetoric] Nueva regla social aprendida: {rule}")
+                
+                # Store as a special node
+                engram_layer.add_triplet("User_Preference", "requires_strategy", rule, confidence=1.0, source_type="SocialAnalysis")
+                return True
+        except:
+             pass
+        return False
 
     def perturb_and_validate(self, s, p, o, client, model_name):
         """
@@ -516,18 +789,23 @@ class AgentMotivation:
             # --- GENERATIVE DREAMING (Perpetual Self- Improvement) ---
             # If no new logs, we reflect on existing knowledge to find new connections.
             try:
-                # 1. Pick a random node from memory (Concept)
+                # 1. Pick a concept (Random or Focused)
                 import sqlite3
                 import random
                 concept = None
-                import sqlite3
-                import random
-                concept = None
-                with sqlite3.connect(engram_layer.path) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT label FROM nodes ORDER BY RANDOM() LIMIT 1")
-                    row = cursor.fetchone()
-                    if row: concept = row[0]
+                
+                if self.current_focus:
+                    # DIRECTED DREAMING
+                    concept = self.current_focus
+                    if self.verbose:
+                         print(f"🎯 [Dream] Soñando sobre objetivo: {concept}")
+                else:
+                    # RANDOM DREAMING
+                    with sqlite3.connect(engram_layer.path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT label FROM nodes ORDER BY RANDOM() LIMIT 1")
+                        row = cursor.fetchone()
+                        if row: concept = row[0]
                 
                 if not concept: return False # Empty mind, cannot dream
                 
