@@ -1,4 +1,8 @@
 memory_db
 knowledge_graph.db
-personalit.json
-venv
+personality.json
+venv/
+__pycache__/
+*.pyc
+dreams.log
+debug.log

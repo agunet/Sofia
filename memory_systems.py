@@ -83,15 +83,19 @@ class GraphEngram:
                            (subject_id, relation, target))
             return cursor.fetchone() is not None
 
-    def get_context(self, text):
-        """Retrieves related context for entities recognized in the text."""
+    def get_context(self, text, depth=2):
+        """Retrieves related context for entities recognized in the text (up to depth 2)."""
         normalized_text = text.lower()
         concepts = []
         seen_ids = set()
+        
+        # Nodes to expand in the next hop
+        next_hop_nodes = set()
 
         with sqlite3.connect(self.path) as conn:
             cursor = conn.cursor()
             
+            # --- HOP 1: Direct Lookup ---
             # 1. Token-based lookup
             words = text.split()
             for word in words:
@@ -102,36 +106,75 @@ class GraphEngram:
                 if word_id in seen_ids: continue
                 
                 cursor.execute("""
-                    SELECT n.label, e.relation, e.target 
+                    SELECT n.label, e.relation, e.target, n2.id
                     FROM nodes n 
                     JOIN edges e ON n.id = e.source_id 
+                    LEFT JOIN nodes n2 ON n2.label = e.target -- Try to map target label back to ID for Hop 2
                     WHERE n.id = ?
                 """, (word_id,))
                 
                 rows = cursor.fetchall()
                 if rows:
                     label = rows[0][0]
+                    # Format: Label: relation target, relation target...
                     desc = ", ".join([f"{r[1]} {r[2]}" for r in rows])
-                    concepts.append(f"{label}: {desc}")
+                    concepts.append(f"[Nivel 1] {label}: {desc}")
                     seen_ids.add(word_id)
+                    
+                    # Collect target IDs for Hop 2
+                    for r in rows:
+                        if r[3]: next_hop_nodes.add(r[3])
 
             # 2. Label-based contains lookup (for multi-word entities)
-            if len(concepts) < 3:
-                # We fetch all labels and check if they are in the text
-                # For very large graphs, this might need optimization (e.g. FTS)
+            if len(concepts) < 5:
                 cursor.execute("SELECT id, label FROM nodes")
                 all_nodes = cursor.fetchall()
                 for node_id, label in all_nodes:
                     if node_id in seen_ids: continue
-                    if len(label) > 3 and label.lower() in normalized_text:
-                        cursor.execute("SELECT relation, target FROM edges WHERE source_id = ?", (node_id,))
+                    
+                    # Robust matching: Try to match label with spaces AND underscores
+                    # "Proyecto_X" -> "proyecto x" to match user input "proyecto x"
+                    clean_label = label.lower().replace("_", " ")
+                    
+                    if len(clean_label) > 3 and clean_label in normalized_text:
+                        cursor.execute("""
+                            SELECT e.relation, e.target, n2.id 
+                            FROM edges e
+                            LEFT JOIN nodes n2 ON n2.label = e.target
+                            WHERE e.source_id = ?
+                        """, (node_id,))
                         edges = cursor.fetchall()
                         if edges:
                             desc = ", ".join([f"{e[0]} {e[1]}" for e in edges])
-                            concepts.append(f"{label}: {desc}")
+                            concepts.append(f"[Nivel 1] {label}: {desc}")
                             seen_ids.add(node_id)
-                            if len(concepts) >= 3: break
+                            # Collect target IDs for Hop 2
+                            for e in edges:
+                                if e[2]: next_hop_nodes.add(e[2])
+                            
+                            if len(concepts) >= 5: break
 
+            # --- HOP 2: Indirect Lookup (Expansion) ---
+            if depth >= 2 and next_hop_nodes:
+                # Limit expansion to maintain focus
+                nodes_to_expand = list(next_hop_nodes)[:5] 
+                
+                for nid in nodes_to_expand:
+                    if nid in seen_ids: continue # Avoid loops
+                    
+                    cursor.execute("""
+                        SELECT n.label, e.relation, e.target 
+                        FROM nodes n 
+                        JOIN edges e ON n.id = e.source_id 
+                        WHERE n.id = ?
+                    """, (nid,))
+                    
+                    rows = cursor.fetchall()
+                    if rows:
+                        label = rows[0][0]
+                        desc = ", ".join([f"{r[1]} {r[2]}" for r in rows])
+                        concepts.append(f"  ↳ [Nivel 2] {label}: {desc}") # Indented visual cue
+                        seen_ids.add(nid)
         return "\n".join(concepts) if concepts else None
 
     def log_dream(self, subject, predicate, object_curr):

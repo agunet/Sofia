@@ -399,17 +399,16 @@ class AgentMotivation:
         Inline extraction: analyze the current exchange immediately.
         """
         prompt = f"""
-        Analiza este intercambio y extrae únicamente HECHOS FUNDAMENTALES o IDENTIDADES.
-        Ignora charla, opiniones temporales o razonamientos.
+        Analiza este intercambio. Si el Usuario afirma un hecho, guárdalo.
         
-        Solo extrae si es algo importante que Sofía deba recordar para SIEMRE sobre el Usuario o el Mundo.
+        Texto: "{user_input}"
+        
+        Instrucciones:
+        1. Si es una afirmación (A es B, A tiene B), extráela.
+        2. Si es una pregunta o saludo, responde NONE.
         
         Formato: SUJETO -> PREDICADO -> OBJETO
-        Ejemplo: Agustin -> es -> Creador de Sofía
-        
-        Intercambio:
-        Usuario: {user_input}
-        Sofía: {agent_output}
+        Ejemplo: "El cielo es azul" => Cielo -> es -> Azul
         
         Salida (Tripleta o NONE):
         """
