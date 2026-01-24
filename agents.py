@@ -152,6 +152,54 @@ class AgentLibrarian:
         formatted_memories = "\n".join([f"- {m}" for m in memories])
         return f"Recuerdos relevantes:\n{formatted_memories}"
 
+class AgentEvolution:
+    def evolve_step(self, logs, client, model_name, recent_discovery=None):
+        pass
+
+    def prune_memory(self, engram_layer, client, model_name):
+        """Garbage Collection: Finds and removes low-quality nodes."""
+        candidates = engram_layer.get_isolated_nodes()
+        if not candidates: return False
+        
+        # Pick 3 random candidates to check per cycle (avoid blocking)
+        import random
+        check_list = random.sample(candidates, min(len(candidates), 3))
+        
+        pruned_count = 0
+        for node_id, label, degree in check_list:
+            # Heuristic 1: Label too long or empty
+            if len(label) > 50 or len(label) < 2:
+                engram_layer.delete_node(node_id)
+                pruned_count += 1
+                continue
+
+            # Heuristic 2: LLM Judgment
+            try:
+                prompt = f"""
+                Evaluación de Calidad de Memoria.
+                Concepto: "{label}"
+                
+                ¿Es este concepto ÚTIL y LEGIBLE, o es BASURA/ALUCINACIÓN (texto cortado, código, tonterías)?
+                Responde KEEP o DELETE.
+                """
+                response = client.chat.completions.create(
+                     model=model_name,
+                     messages=[{"role": "user", "content": prompt}],
+                     temperature=0.0,
+                     max_tokens=5
+                )
+                decision = response.choices[0].message.content.strip().upper()
+                if "DELETE" in decision:
+                     engram_layer.delete_node(node_id)
+                     pruned_count += 1
+            except:
+                pass
+        
+        if pruned_count > 0:
+            print(f"🧹 [Garbage Collector] Se han eliminado {pruned_count} nodos basura.")
+            return True
+        return False
+
 class AgentSearch:
     """
     Agente 2.5: Buscador Web (El Explorador)
@@ -159,7 +207,7 @@ class AgentSearch:
     """
     def search_web(self, query):
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
             results = DDGS().text(query, max_results=3)
             if not results:
                 return "No se encontraron resultados en la web."
@@ -227,15 +275,97 @@ class AgentMotivation:
                     match = pattern.search(line)
                     if match:
                         s, p, o = match.groups()
-                        # Insert into Graph (idempotent due to INSERT OR IGNORE)
-                        engram_layer.add_triplet(s, p, o)
-                        # Insert into Semantic Memory
-                        episodic_layer.add_fact_triplet(s, p, o)
+                        
+                        # 0. Check for Contradiction or Truth-Guard
+                        should_abort = self.check_contradiction(s, p, o, engram_layer, self.client, self.model_name)
+                        
+                        if not should_abort:
+                            # Insert into Graph (idempotent due to INSERT OR IGNORE)
+                            engram_layer.add_triplet(s, p, o)
+                            # Insert into Semantic Memory
+                            episodic_layer.add_fact_triplet(s, p, o)
                         count += 1
         except Exception as e:
             print(f"[AgentMotivation] Error ingesting log: {e}")
             
         return count
+        return count
+
+    def check_contradiction(self, s, p, o_new, engram_layer, client, model_name):
+        """Checks if new fact contradicts existing knowledge."""
+        # Check for existing values for this Subject + Predicate
+        import sqlite3
+        existing_objects = []
+        s_id = engram_layer._hash(s)
+        
+        with sqlite3.connect(engram_layer.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT target FROM edges WHERE source_id = ? AND relation = ?", (s_id, p))
+            rows = cursor.fetchall()
+            existing_objects = [r[0] for r in rows]
+        
+        if not existing_objects:
+            return False # No conflict possible
+
+        if not existing_objects:
+            return False # No conflict possible
+
+        # Ask LLM if there is a contradiction AND which one is true
+        prompt = f"""
+        Conflict Analysis:
+        Subject: {s}
+        Relation: {p}
+        
+        Fact A (Existing): {existing_objects}
+        Fact B (New): {o_new}
+        
+        Instruction:
+        1. Does B contradict A? 
+        2. If YES, which one is scientifically/logically more accurate?
+        
+        Output format: ACTION | REASON
+        Actions:
+        - KEEP_A (If A is true/better and B is false/wrong) -> We reject B.
+        - REPLACE_WITH_B (If B is correction of A) -> We delete A.
+        - KEEP_BOTH (If no contradiction or both are valid context) -> We keep A and add B.
+        
+        Examples:
+        "Earth is Flat" (New) vs "Earth is Round" (Old) -> KEEP_A | Earth is scientifically round.
+        "Earth is Round" (New) vs "Earth is Flat" (Old) -> REPLACE_WITH_B | Correction of error.
+        "Agustin likes Pizza" (New) vs "Agustin likes Sushi" (Old) -> KEEP_BOTH | Preferences change/coexist.
+        """
+        
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=40
+            )
+            decision_line = response.choices[0].message.content.strip()
+            
+            if "REPLACE_WITH_B" in decision_line:
+                # We need to find WHICH of existing objects to delete (simplified: delete all conflicting?)
+                # For safety, let's just delete the specific one if possible or all for this relation.
+                # Here we assume single-value logic for simplicity in this V1
+                for old_val in existing_objects:
+                    if self.verbose:
+                        print(f"♻️ [Self-Correction] Actualizando verdad. Olvidando erróneo: [{old_val}] -> Aceptando: [{o_new}]")
+                    engram_layer.delete_triplet(s, p, old_val)
+                return False # Allow adding the new one
+                
+            elif "KEEP_A" in decision_line:
+                if self.verbose:
+                    print(f"🛡️ [Truth-Guard] Rechazando dato incorrecto/falso: [{o_new}] vs Verdad: {existing_objects}")
+                return True # Signal that we should ABORT adding the new one
+                
+            else:
+                return False # KEEP_BOTH, so proceed to add new one
+                
+        except Exception as e:
+            pass
+            
+        return False
 
     def dream_step(self, logs, engram_layer, episodic_layer, client, model_name="Qwen/Qwen2.5-1.5B-Instruct"):
         """
@@ -295,7 +425,7 @@ class AgentMotivation:
                         print(f"✨ [Sueño Generativo] Decisión: {mode}. Buscando en la web sobre: {concept}...")
                     
                     # Perform Search
-                    from duckduckgo_search import DDGS
+                    from ddgs import DDGS
                     try:
                         results = DDGS().text(f"define {concept} philosophy science", max_results=1)
                         if results:
@@ -314,8 +444,12 @@ class AgentMotivation:
                             Ejemplo: Vida -> se_define_como -> Estado_biológico
                             """
                         else:
+                            if self.verbose: 
+                                print(f"⚠️ [Sueño Generativo] Búsqueda sin resultados. Cambiando a Reflexión Interna.")
                             mode = "REFLECT" # Fallback
-                    except:
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"⚠️ [Sueño Generativo] Error en búsqueda ({e}). Cambiando a Reflexión Interna.")
                         mode = "REFLECT" # Fallback
 
                 if mode == "REFLECT":
@@ -436,9 +570,13 @@ class AgentMotivation:
                                 if len(s) < 30 and len(o) < 100:
                                     # CHECK EXISTENCE BEFORE LOGGING
                                     if not engram_layer.exists(s, p, o):
-                                        # 1. Save to Graph (RAM/SQLite)
-                                        engram_layer.add_triplet(s, p, o)
-                                        # 2. Save to ChromaDB (Semantic)
+                                        # 0. Check Contradiction
+                                        should_abort = self.check_contradiction(s, p, o, engram_layer, client, model_name)
+                                        
+                                        if not should_abort:
+                                            # 1. Save to Graph (RAM/SQLite)
+                                            engram_layer.add_triplet(s, p, o)
+                                            # 2. Save to ChromaDB (Semantic)
                                         episodic_layer.add_fact_triplet(s, p, o)
                                         
                                         # --- New SQLite Logging ---

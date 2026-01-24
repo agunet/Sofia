@@ -46,6 +46,8 @@ class DreamThread(threading.Thread):
                 # 3. Periodic Evolution (Maintenance)
                 elif step_count % 5 == 0:
                      evolved = self.evolution.evolve_step(self.session_logs, self.client, model_name=self.model_name)
+                     # Garbage Collection (Pruning)
+                     self.evolution.prune_memory(self.engram, self.client, self.model_name)
                 
                 if discovery_result and self.motivator.verbose:
                     print(".", end="", flush=True) 

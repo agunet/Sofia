@@ -3,3 +3,4 @@ vllm
 openai
 numpy
 sentence-transformers
+ddgs

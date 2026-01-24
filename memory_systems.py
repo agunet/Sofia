@@ -71,6 +71,40 @@ class GraphEngram:
                                (subject_id, relation, target))
             conn.commit()
 
+    def delete_triplet(self, subject, relation, target):
+        """Removes a specific triplet from the graph (Self-Correction)."""
+        subject_id = self._hash(subject.strip())
+        target = target.strip()
+        
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
+                           (subject_id, relation, target))
+            conn.commit()
+
+    def get_isolated_nodes(self):
+        """Returns list of (id, label) for nodes with very low connectivity."""
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            # Find nodes that are source of <= 1 edge AND target of 0 edges? 
+            # Simplified: Nodes with degree < 2
+            cursor.execute("""
+                SELECT n.id, n.label, COUNT(e.source_id) as degree
+                FROM nodes n
+                LEFT JOIN edges e ON n.id = e.source_id
+                GROUP BY n.id
+                HAVING degree <= 1
+            """)
+            return cursor.fetchall()
+
+    def delete_node(self, node_id):
+        """Deletes a node and its edges."""
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM edges WHERE source_id = ?", (node_id,))
+            cursor.execute("DELETE FROM nodes WHERE id = ?", (node_id,))
+            conn.commit()
+
     def exists(self, subject, relation, target):
         """Checks if a triplet already exists to avoid duplication loops."""
         norm_subject = subject.strip()

@@ -34,6 +34,11 @@ Sofía utiliza un algoritmo de recuperación de **Nivel 2**:
 *   No solo recuerda lo directo (`Proyecto X` -> `Secreto`).
 *   Infiere conexiones de segundo orden automáticamente (`Secreto` -> `Peligroso` => `Proyecto X` es `Peligroso`).
 
+### 5. Limpieza Automática (Garbage Collection) 🧹
+Para evitar que su memoria se llene de ruido o alucinaciones, Sofía ejecuta una "poda" durante el sueño:
+*   **Detección de Ruido:** Identifica nodos aislados o con etiquetas sin sentido (ej. muy largas o cortadas).
+*   **Juicio Interno:** El sistema evalúa si el concepto es útil o basura antes de borrarlo.
+
 ---
 
 ## 🛠️ Instalación y Requisitos
