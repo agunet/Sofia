@@ -118,7 +118,7 @@ While chatting in `main.py` or using the Dashboard inputs:
 - [x] **Mental Laboratory:** Simulation engine for counterfactuals.
 - [x] **Genesis Protocol:** Auto-seeding of memories if the brain is empty.
 - [x] **Strategy Analysis:** Learning of rhetorical rules based on user feedback.
-- [x] **Autonomous Research:** Capability to deep-read full web articles (using Jina Reader) when snippets aren't enough.
+- [x] **Autonomous Research:** Capability to deep-read full web articles (using Playwright + Markdownify) when snippets aren't enough.
 
 ---
 

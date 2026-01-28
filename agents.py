@@ -497,7 +497,7 @@ class AgentSearch:
     def fetch_deep_content(self, url):
         """
         [Web Reader Module]
-        Fetches full content of a URL using Jina Reader.
+        Fetches full content of a URL using Playwright & Markdownify.
         """
         try:
             import web_reader

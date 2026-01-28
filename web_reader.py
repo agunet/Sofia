@@ -1,40 +1,52 @@
-import requests
+import asyncio
+from playwright.sync_api import sync_playwright
+from markdownify import markdownify as md
 
 def fetch_and_clean(url, max_chars=8000):
     """
-    Fetches web content and converts it to clean Markdown using Jina Reader.
+    Fetches web content using Playwright (Headless Browser) and converts to Markdown.
     Args:
         url: The target URL to read.
-        max_chars: Safety limit to prevent context flooding (default 8k).
+        max_chars: Safety limit to prevent context flooding.
     Returns:
         Clean markdown string or error message.
     """
     try:
-        # Jina Reader API: https://r.jina.ai/<URL>
-        # It returns standard markdown.
-        reader_url = f"https://r.jina.ai/{url}"
+        content_html = ""
         
-        # Determine if we need to request JSON or text. 
-        # Standard GET usually returns text/markdown for Jina.
-        response = requests.get(reader_url, timeout=10)
+        with sync_playwright() as p:
+            # Launch browser (chromium by default)
+            # We assume browsers are installed or system browser is available.
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            
+            # Go to URL with timeout
+            page.goto(url, timeout=15000, wait_until="domcontentloaded")
+            
+            # Simple heuristic: wait a bit for JS to render if needed
+            # page.wait_for_timeout(1000) 
+            
+            # Get content
+            content_html = page.content()
+            browser.close()
         
-        if response.status_code == 200:
-            content = response.text
+        if content_html:
+            # Convert to Markdown
+            markdown_text = md(content_html)
             
-            # Basic cleanup if needed, but Jina is usually good.
-            # Truncate if too long (keeping the head is usually more important for summary)
-            if len(content) > max_chars:
-                return content[:max_chars] + f"\n\n... [Content Truncated at {max_chars} chars] ..."
-            return content
+            # Basic cleanup: Remove excessive newlines
+            clean_text = "\n".join([line.strip() for line in markdown_text.splitlines() if line.strip()])
             
-        else:
-            return f"Error reading content: HTTP {response.status_code}"
+            # Truncate
+            if len(clean_text) > max_chars:
+                return clean_text[:max_chars] + f"\n\n... [Content Truncated at {max_chars} chars] ..."
+            return clean_text
             
+        return "Error: Empty content retrieved."
+
     except Exception as e:
-        return f"Error fetching content: {str(e)}"
+        return f"Error fetching content (Playwright): {str(e)}"
 
 if __name__ == "__main__":
-    # Quick Test
-    test_url = "https://example.com"
-    print(f"Fetching {test_url}...")
-    print(fetch_and_clean(test_url))
+    # Test
+    print(fetch_and_clean("https://example.com"))

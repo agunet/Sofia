@@ -116,7 +116,7 @@ Mientras chateas en `main.py` o usas el Dashboard:
 - [x] **Laboratorio Mental:** Motor de simulación para contrafactuales.
 - [x] **Protocolo Génesis:** Sembrado automático si el cerebro está vacío.
 - [x] **Análisis de Estrategia:** Aprendizaje de reglas retóricas.
-- [x] **Investigación Autónoma:** Capacidad de leer artículos completos (vía Jina Reader) cuando los resúmenes no bastan.
+- [x] **Investigación Autónoma:** Capacidad de leer artículos completos (vía Playwright) cuando los resúmenes no bastan.
 
 ---
 
