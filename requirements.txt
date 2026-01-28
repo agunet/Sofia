@@ -3,8 +3,8 @@ vllm
 openai
 numpy
 sentence-transformers
-ddgs
 flask
 requests
 playwright
 trafilatura
+duckduckgo_search

@@ -458,38 +458,22 @@ class AgentSearch:
     """
     def search_web(self, query):
         """
-        Búsqueda con Validación de Fuentes Múltiples (Double Check).
-        Requiere al menos 2 fuentes independientes para validar el conocimiento.
+        Executes a search using Web Reader (Browser Scraping) for maximum reliability.
         """
         try:
-            from duckduckgo_search import DDGS
-            results = DDGS().text(query, max_results=5)
+            import web_reader
+            
+            # Use the new browser-based search
+            results = web_reader.search_via_browser(query, max_results=5)
+            
             if not results: return "No se encontraron resultados en la web.", []
             
-            # Aggregate content
-            synthesized = []
-            domains = set()
-            raw_results = [] # To return for potential Deep Read
+            # Format Summary
+            summary_lines = []
+            for i, res in enumerate(results):
+                summary_lines.append(f"{i+1}. {res['title']} ({res['url']})\n   {res['snippet']}")
             
-            for r in results:
-                try:
-                    # Extract domain for source validation (simple split)
-                    domain = r['href'].split('/')[2]
-                    domains.add(domain)
-                    snippet = f"- [{domain}] {r['body']}"
-                    synthesized.append(snippet)
-                    raw_results.append({"url": r['href'], "snippet": r['body'], "domain": domain})
-                except:
-                    continue
-            
-            # Validation Check
-            summary = ""
-            if len(domains) < 2:
-                summary = f"⚠️ [Low Confidence] Datos encontrados solo en 1 fuente: {list(domains)[0] if domains else 'Unknown'}. Se requiere verificación adicional.\n" + "\n".join(synthesized)
-            else:
-                summary = f"✅ [Verified] Información corroborada en {len(domains)} fuentes independientes.\n" + "\n".join(synthesized[:3])
-            
-            return summary, raw_results
+            return "\n".join(summary_lines), results
             
         except Exception as e:
             return f"Error buscando en la web: {str(e)}", []
@@ -978,7 +962,7 @@ class AgentMotivation:
                         print(f"✨ [Sueño Generativo] Decisión: {mode}. Buscando en la web sobre: {concept}...")
                     
                     try:
-                        # 1. Standard Search (Get Snippets)
+                        # 1. Standard Search (Get Snippets via Browser)
                         summary, raw_results = searcher.search_web(f"define {concept} philosophy science")
                         
                         if not raw_results:
@@ -986,7 +970,13 @@ class AgentMotivation:
                         else:
                             # 2. The Loop: "Link Clicker" Decision
                             # Should we read deep?
-                            snippet_text = "\n".join([f"{i}. [{r['domain']}] {r['snippet'][:100]}... (URL: {r['url']})" for i, r in enumerate(raw_results)])
+                            from urllib.parse import urlparse
+                            
+                            def get_domain(u):
+                                try: return urlparse(u).netloc
+                                except: return "web"
+
+                            snippet_text = "\n".join([f"{i}. [{get_domain(r.get('url', ''))}] {r.get('snippet', '')[:100]}... (URL: {r.get('url', '')})" for i, r in enumerate(raw_results)])
                             
                             click_prompt = f"""
                             Estás investigando: "{concept}".
@@ -1167,12 +1157,13 @@ class AgentMotivation:
                             if s and p and o:
                                 # Standardize: Only save if subject and object are concise
                                 # NEW: Hard limit on word count to prevent "sentences as nodes"
-                                if len(s.split()) > 6 or len(o.split()) > 10:
+                                # Relaxed from 10 -> 25 words to allow philosophical definitions
+                                if len(s.split()) > 8 or len(o.split()) > 25:
                                     if self.verbose: 
                                         print(f"✂️ [Cleaner] Rechazado por ser muy largo: {s} -> {p} -> {o}")
                                     continue
 
-                                if len(s) < 50 and len(o) < 150:
+                                if len(s) < 60 and len(o) < 250:
                                     # CHECK EXISTENCE BEFORE LOGGING
                                     if not engram_layer.exists(s, p, o):
                                         # 0. Check Contradiction
