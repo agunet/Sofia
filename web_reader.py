@@ -1,52 +1,78 @@
-import asyncio
+import logging
 from playwright.sync_api import sync_playwright
-from markdownify import markdownify as md
+import trafilatura
 
-def fetch_and_clean(url, max_chars=8000):
+# Singleton Storage
+_PLAYWRIGHT = None
+_BROWSER = None
+
+def get_browser():
     """
-    Fetches web content using Playwright (Headless Browser) and converts to Markdown.
-    Args:
-        url: The target URL to read.
-        max_chars: Safety limit to prevent context flooding.
-    Returns:
-        Clean markdown string or error message.
+    Singleton Pattern: Returns the existing browser capability or launches a new one.
+    Keeps the browser open to save 2-5s per request.
+    """
+    global _PLAYWRIGHT, _BROWSER
+    if _BROWSER is None:
+        print("🚀 [Web Reader] Launching Headless Browser (Singleton)...")
+        _PLAYWRIGHT = sync_playwright().start()
+        _BROWSER = _PLAYWRIGHT.chromium.launch(headless=True)
+    return _BROWSER
+
+def fetch_and_clean(url, max_chars=12000):
+    """
+    Fetches web content using a Persistent Headless Browser + Trafilatura Extraction.
+    
+    Improvements V3:
+    1. Singleton Browser (Speedup).
+    2. Trafilatura (Noise Filter: Ads, Menus, Cookies).
     """
     try:
-        content_html = ""
+        browser = get_browser()
         
-        with sync_playwright() as p:
-            # Launch browser (chromium by default)
-            # We assume browsers are installed or system browser is available.
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            
+        # Create a fresh context/page for this request
+        page = browser.new_page()
+        
+        try:
             # Go to URL with timeout
-            page.goto(url, timeout=15000, wait_until="domcontentloaded")
+            # 'domcontentloaded' is faster than 'load' (wait for external resources)
+            page.goto(url, timeout=20000, wait_until="domcontentloaded")
             
-            # Simple heuristic: wait a bit for JS to render if needed
-            # page.wait_for_timeout(1000) 
-            
-            # Get content
+            # Get raw HTML after JS execution
             content_html = page.content()
-            browser.close()
+            
+        finally:
+            # IMPORTANT: Close only the page, NOT the browser
+            page.close()
         
         if content_html:
-            # Convert to Markdown
-            markdown_text = md(content_html)
+            # Extract Main Content (Filter Noise)
+            # include_comments=False gets rid of social garbage
+            clean_text = trafilatura.extract(content_html, include_comments=False, output_format="markdown")
             
-            # Basic cleanup: Remove excessive newlines
-            clean_text = "\n".join([line.strip() for line in markdown_text.splitlines() if line.strip()])
-            
+            if not clean_text:
+                return "⚠️ Error: Trafilatura could not extract main content (Site might be empty or blocked)."
+
             # Truncate
             if len(clean_text) > max_chars:
-                return clean_text[:max_chars] + f"\n\n... [Content Truncated at {max_chars} chars] ..."
+                 return clean_text[:max_chars] + f"\n\n... [Content Truncated at {max_chars} chars] ..."
             return clean_text
             
-        return "Error: Empty content retrieved."
+        return "Error: Empty HTML retrieved."
 
     except Exception as e:
-        return f"Error fetching content (Playwright): {str(e)}"
+        return f"Error fetching content: {str(e)}"
+
+def close_browser():
+    """Call this on system shutdown to clean up resources."""
+    global _BROWSER, _PLAYWRIGHT
+    if _BROWSER:
+        _BROWSER.close()
+        _BROWSER = None
+    if _PLAYWRIGHT:
+        _PLAYWRIGHT.stop()
+        _PLAYWRIGHT = None
 
 if __name__ == "__main__":
     # Test
     print(fetch_and_clean("https://example.com"))
+    close_browser()

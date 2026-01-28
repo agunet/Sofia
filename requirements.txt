@@ -7,4 +7,4 @@ ddgs
 flask
 requests
 playwright
-markdownify
+trafilatura

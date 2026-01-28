@@ -4,8 +4,8 @@
 # Asegúrate de haber instalado vllm: pip install vllm
 
 # MODEL_NAME="Qwen/Qwen2.5-1.5B-Instruct"
-# MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
-MODEL_NAME="casperhansen/deepseek-r1-distill-qwen-32b-awq"
+MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
+# MODEL_NAME="casperhansen/deepseek-r1-distill-qwen-32b-awq"
 
 echo "--- Iniciando vLLM Server con $MODEL ---"
 echo "Usando puerto 8000 y formato compatible con OpenAI"
@@ -19,7 +19,8 @@ python -m vllm.entrypoints.openai.api_server \
     --model $MODEL_NAME \
     --host 0.0.0.0 \
     --port 8085 \
-    --gpu-memory-utilization 0.8 \
+    --gpu-memory-utilization 0.85 \
+    --max-num-seqs 1 \
     --tensor-parallel-size 2 \
     --max-model-len 8192 \
     --trust-remote-code \
