@@ -464,29 +464,48 @@ class AgentSearch:
         try:
             from duckduckgo_search import DDGS
             results = DDGS().text(query, max_results=5)
-            if not results: return "No se encontraron resultados en la web."
+            if not results: return "No se encontraron resultados en la web.", []
             
             # Aggregate content
             synthesized = []
             domains = set()
+            raw_results = [] # To return for potential Deep Read
             
             for r in results:
                 try:
                     # Extract domain for source validation (simple split)
                     domain = r['href'].split('/')[2]
                     domains.add(domain)
-                    synthesized.append(f"- [{domain}] {r['body']}")
+                    snippet = f"- [{domain}] {r['body']}"
+                    synthesized.append(snippet)
+                    raw_results.append({"url": r['href'], "snippet": r['body'], "domain": domain})
                 except:
                     continue
             
             # Validation Check
+            summary = ""
             if len(domains) < 2:
-                return f"⚠️ [Low Confidence] Datos encontrados solo en 1 fuente: {list(domains)[0] if domains else 'Unknown'}. Se requiere verificación adicional.\n" + "\n".join(synthesized)
+                summary = f"⚠️ [Low Confidence] Datos encontrados solo en 1 fuente: {list(domains)[0] if domains else 'Unknown'}. Se requiere verificación adicional.\n" + "\n".join(synthesized)
+            else:
+                summary = f"✅ [Verified] Información corroborada en {len(domains)} fuentes independientes.\n" + "\n".join(synthesized[:3])
             
-            return f"✅ [Verified] Información corroborada en {len(domains)} fuentes independientes.\n" + "\n".join(synthesized[:3])
+            return summary, raw_results
             
         except Exception as e:
-            return f"Error buscando en la web: {str(e)}"
+            return f"Error buscando en la web: {str(e)}", []
+
+    def fetch_deep_content(self, url):
+        """
+        [Web Reader Module]
+        Fetches full content of a URL using Jina Reader.
+        """
+        try:
+            import web_reader
+            print(f"   ↳ 📖 [Deep Read] Leyendo contenido completo de: {url} ...")
+            content = web_reader.fetch_and_clean(url)
+            return content
+        except Exception as e:
+            return f"Error reading {url}: {e}"
 
 class AgentEmpathy:
     """
@@ -709,9 +728,10 @@ class AgentMotivation:
 
 
 
-    def synthesize_memory(self, engram_layer, client, model_name):
+    def synthesize_memory(self, engram_layer, client, model_name, episodic_layer=None):
         """
         Compresses many detailed facts into 1 General Principle (Abstractions).
+        [Consolidation Module]: Synthesis + Pruning.
         """
         import sqlite3
         
@@ -743,7 +763,8 @@ class AgentMotivation:
             return False
 
         # 2. Ask LLM to synthesize
-        facts_text = "\n".join([f"- {dense_node} {r} {t}" for r, t in edges])
+        facts_list = [f"{dense_node} {r} {t}" for r, t in edges]
+        facts_text = "\n".join([f"- {f}" for f in facts_list])
         
         try:
             prompt = f"""
@@ -776,11 +797,19 @@ class AgentMotivation:
                 p = p.strip()
                 o = o.strip()
                 
-                if self.verbose:
-                    print(f"🧬 [Synthesis] Comprimidos {len(edges)} hechos en Principio: {dense_node} -> {p} -> {o}")
-                
                 # Add the Principle (High Confidence)
                 engram_layer.add_triplet(dense_node, p, o, confidence=1.0, source_type="Synthesis")
+                
+                # --- PRUNING PHASE (The Gardener) ---
+                pruned_count = 0
+                if episodic_layer:
+                    pruned_count = episodic_layer.delete_by_text(facts_list)
+
+                if self.verbose:
+                    print(f"🧬 [Consolidation] He consolidado {len(edges)} hechos en 1 Principio: {dense_node} -> {p} -> {o}")
+                    if pruned_count > 0:
+                        print(f"   ↳ ✂️ [Poda] Liberado espacio semántico eliminando {pruned_count} vectores redundantes.")
+                
                 return True
                 
         except Exception as e:
@@ -880,7 +909,7 @@ class AgentMotivation:
         except:
             return True, "Error" # If fails, assume valid to not block
 
-    def dream_step(self, logs, engram_layer, episodic_layer, client, model_name="Qwen/Qwen2.5-1.5B-Instruct"):
+    def dream_step(self, logs, engram_layer, episodic_layer, client, model_name="Qwen/Qwen2.5-1.5B-Instruct", searcher=None):
         """
         Executes a SINGLE step of consolidation extracting Graph Triplets.
         """
@@ -944,41 +973,77 @@ class AgentMotivation:
                     except:
                         mode = "REFLECT"
 
-                if mode == "SEARCH":
+                if mode == "SEARCH" and searcher:
                     if self.verbose:
                         print(f"✨ [Sueño Generativo] Decisión: {mode}. Buscando en la web sobre: {concept}...")
                     
-                    # Perform Search
-                    from ddgs import DDGS
                     try:
-                        results = DDGS().text(f"define {concept} philosophy science", max_results=1)
-                        if results:
-                            web_data = results[0]['body']
+                        # 1. Standard Search (Get Snippets)
+                        summary, raw_results = searcher.search_web(f"define {concept} philosophy science")
+                        
+                        if not raw_results:
+                             mode = "REFLECT"
+                        else:
+                            # 2. The Loop: "Link Clicker" Decision
+                            # Should we read deep?
+                            snippet_text = "\n".join([f"{i}. [{r['domain']}] {r['snippet'][:100]}... (URL: {r['url']})" for i, r in enumerate(raw_results)])
+                            
+                            click_prompt = f"""
+                            Estás investigando: "{concept}".
+                            Resultados encontrados:
+                            {snippet_text}
+                            
+                            ¿Es suficiente esta información para entender profundamente el tema?
+                            O ¿debo LEER (Fetch) uno de estos artículos completo?
+                            
+                            Si los snippets son pobres, EJECUTA: READ <Index>
+                            Si tienes suficiente, EJECUTA: DONE
+                            """
+                            
+                            click_resp = client.chat.completions.create(
+                                model=model_name,
+                                messages=[{"role": "user", "content": click_prompt}],
+                                max_tokens=10, temperature=0.1
+                            )
+                            decision = click_resp.choices[0].message.content.strip().upper()
+                            
+                            final_data = summary
+                            
+                            if "READ" in decision:
+                                try:
+                                    idx = int(decision.split("READ")[1].strip())
+                                    if 0 <= idx < len(raw_results):
+                                        target_url = raw_results[idx]['url']
+                                        if self.verbose: 
+                                            print(f"   ↳ 🖱️ [Link Clicker] Decisión: Leer Artículo {idx} ({target_url})")
+                                        
+                                        # FETCH MODULE
+                                        full_content = searcher.fetch_deep_content(target_url)
+                                        final_data = f"CONTENIDO PROFUNDO ({target_url}):\n{full_content[:4000]}" # Soft limit
+                                except:
+                                    pass
+
                             synthetic_log = {
                                'input': f"Investigación autónoma sobre: {concept}",
-                               'output': f"He encontrado esto: {web_data}"
+                               'output': f"He procesado esta info externa: {final_data}"
                             }
+                            
                             analysis_prompt = f"""
-                            Analiza esta información de la web y extrae UN HECHO NUEVO.
+                            Analiza esta información DEEP RESEARCH y extrae HECHOS NUEVOS.
                             
                             Concepto: {concept}
-                            Info: "{web_data}"
+                            Info: "{final_data}"
                             
                             Formato: SUJETO -> PREDICADO -> OBJETO
-                            REGLA DE ORO: Los nodos (Sujeto y Objeto) deben ser CONCEPTOS (Máximo 4 palabras).
-                            NO uses frases enteras. Simplifica.
-                            
-                            Mal: La_ciencia_es_el_estudio_de... -> se_define_como -> Conjunto_de_conocimientos...
-                            Bien: Ciencia -> es -> Conocimiento_Sistemático
+                            REGLA: Extrae tripletas científicas o fácticas.
                             """
-                        else:
-                            if self.verbose: 
-                                print(f"⚠️ [Sueño Generativo] Búsqueda sin resultados. Cambiando a Reflexión Interna.")
-                            mode = "REFLECT" # Fallback
                     except Exception as e:
                         if self.verbose:
                             print(f"⚠️ [Sueño Generativo] Error en búsqueda ({e}). Cambiando a Reflexión Interna.")
                         mode = "REFLECT" # Fallback
+                
+                elif mode == "SEARCH" and not searcher:
+                     mode = "REFLECT" # Fallback if no searcher passed
 
                 if mode == "REFLECT":
                     # Log this synthetic "thought"

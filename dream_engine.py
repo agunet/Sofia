@@ -2,7 +2,7 @@ import threading
 import time
 
 class DreamThread(threading.Thread):
-    def __init__(self, motivator, session_logs, engram, episodic, client, stop_event, model_name, evolution):
+    def __init__(self, motivator, session_logs, engram, episodic, client, stop_event, model_name, evolution, searcher):
         super().__init__()
         self.motivator = motivator
         self.session_logs = session_logs
@@ -12,6 +12,7 @@ class DreamThread(threading.Thread):
         self.stop_event = stop_event
         self.model_name = model_name
         self.evolution = evolution
+        self.searcher = searcher
         self.daemon = True # Kill thread if main program exits
 
     def run(self):
@@ -20,7 +21,7 @@ class DreamThread(threading.Thread):
             try:
                 # 1. Triplets Discovery (Returns the discovered fact string if any, else None/False)
                 # We need to update dream_step to return the string content if possible
-                discovery_result = self.motivator.dream_step(self.session_logs, self.engram, self.episodic, self.client, model_name=self.model_name)
+                discovery_result = self.motivator.dream_step(self.session_logs, self.engram, self.episodic, self.client, model_name=self.model_name, searcher=self.searcher)
                 
                 # 2. Immediate Evolution if something was learned
                 if discovery_result:
@@ -36,6 +37,10 @@ class DreamThread(threading.Thread):
                      evolved = self.evolution.evolve_step(self.session_logs, self.client, model_name=self.model_name)
                      # Garbage Collection (Pruning)
                      self.evolution.prune_memory(self.engram, self.client, self.model_name, episodic_layer=self.episodic)
+                     
+                     # Consolidation (Synthesis + Pruning) - Run periodically
+                     if step_count % 10 == 0:
+                         self.motivator.synthesize_memory(self.engram, self.client, self.model_name, episodic_layer=self.episodic)
                 
                 if discovery_result and self.motivator.verbose:
                     print(".", end="", flush=True) 

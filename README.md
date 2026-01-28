@@ -108,7 +108,7 @@ While chatting in `main.py` or using the Dashboard inputs:
 ### Memory & Learning
 - [x] **Weighted Graph:** Nodes have Importance and Confidence scores.
 - [x] **Feedback Loop:** Strong corrections reduce confidence or delete nodes.
-- [x] **Memory Compression:** Synthesis of dispersed facts into principles.
+- [x] **Consolidation Total:** Synthesis of facts into principles + Auto-Pruning of the original raw memories.
 - [x] **Reasoning Cache:** "Muscle Memory" for repeated complex questions.
 - [x] **Semantic Relevance Filter:** Cosine distance pruning to prevent context flooding.
 - [x] **Synaptic Pruning:** Autonomous deletion of weak and core-unrelated memories during sleep.
@@ -118,6 +118,7 @@ While chatting in `main.py` or using the Dashboard inputs:
 - [x] **Mental Laboratory:** Simulation engine for counterfactuals.
 - [x] **Genesis Protocol:** Auto-seeding of memories if the brain is empty.
 - [x] **Strategy Analysis:** Learning of rhetorical rules based on user feedback.
+- [x] **Autonomous Research:** Capability to deep-read full web articles (using Jina Reader) when snippets aren't enough.
 
 ---
 

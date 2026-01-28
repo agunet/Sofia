@@ -106,7 +106,7 @@ Mientras chateas en `main.py` o usas el Dashboard:
 ### Memoria y Aprendizaje
 - [x] **Grafo Ponderado:** Nodos con scores de importancia y confianza.
 - [x] **Feedback Loop:** Castigo y eliminación de nodos ante correcciones.
-- [x] **Compresión de Memoria:** Síntesis de hechos en principios.
+- [x] **Consolidación Total:** Síntesis de hechos en principios + Auto-Poda de las memorias originales redundantes.
 - [x] **Caché de Razonamiento:** "Memoria Muscular" para problemas complejos.
 - [x] **Filtro de Relevancia Semántica:** Poda por distancia cosidinal para evitar inundación de contexto.
 - [x] **Poda Sináptica:** Eliminación autónoma de memorias débiles y sin conexión al núcleo durante el sueño.
@@ -116,6 +116,7 @@ Mientras chateas en `main.py` o usas el Dashboard:
 - [x] **Laboratorio Mental:** Motor de simulación para contrafactuales.
 - [x] **Protocolo Génesis:** Sembrado automático si el cerebro está vacío.
 - [x] **Análisis de Estrategia:** Aprendizaje de reglas retóricas.
+- [x] **Investigación Autónoma:** Capacidad de leer artículos completos (vía Jina Reader) cuando los resúmenes no bastan.
 
 ---
 

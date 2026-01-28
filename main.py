@@ -94,7 +94,7 @@ def main():
             
             # --- START DREAMING (When waiting for user) ---
             stop_dreaming.clear()
-            dreamer = DreamThread(motivator, session_logs, engram, episodic, client, stop_dreaming, model_name=MODEL_NAME, evolution=evolution)
+            dreamer = DreamThread(motivator, session_logs, engram, episodic, client, stop_dreaming, model_name=MODEL_NAME, evolution=evolution, searcher=searcher)
             dreamer.start()
 
             if remote_cmd:
@@ -190,7 +190,7 @@ def main():
             elif decision["action"] == "search_web":
                 print(f"{C.OKCYAN}[Monitor] Información externa necesaria. Buscando en la web...{C.ENDC}")
                 try:
-                    search_results = searcher.search_web(user_input)
+                    search_results, _ = searcher.search_web(user_input)
                     print(f"{C.OKBLUE}✔ Datos encontrados.{C.ENDC}")
                     graph_context = search_results # Override graph context with fresh web data
                 except Exception as e:

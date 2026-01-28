@@ -525,6 +525,31 @@ class EpisodicLayer:
             
         return len(ids_to_delete)
 
+    def delete_by_text(self, texts):
+        """
+        [Consolidation Module]
+        Deletes specific text memories after they have been synthesized into the Graph.
+        """
+        if not texts: return 0
+        
+        # We need to find the IDs for these texts.
+        # Strategy: Query by text to find IDs.
+        
+        ids_to_delete = []
+        for text in texts:
+            # We assume exact match or very close match.
+            results = self.collection.get(
+                where_document={"$eq": text}
+            )
+            if results['ids']:
+                ids_to_delete.extend(results['ids'])
+        
+        if ids_to_delete:
+            self.collection.delete(ids=ids_to_delete)
+            # print(f"🧹 [Consolidated] Deleted {len(ids_to_delete)} raw fact vectors.")
+            return len(ids_to_delete)
+        return 0
+
     # --- REASONING CACHE METHODS ---
     def cache_reasoning(self, problem, solution):
         """Caches a System 2 Reasoning result."""
