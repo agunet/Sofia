@@ -3,6 +3,8 @@ import json
 import datetime
 import os
 
+from memory_systems import GraphEngram, EpisodicLayer, MemoryManager
+
 class AgentCheck:
     """
     Agente 1: Monitor Metacognitivo (El Supervisor)
@@ -557,6 +559,10 @@ class AgentMotivation:
     def __init__(self, verbose=False):
         self.processed_logs = set() # Track what we've already analyzed
         self.verbose = verbose
+        # Memory Systems
+        self.engram = GraphEngram()
+        self.episodic = EpisodicLayer()
+        self.memory_manager = MemoryManager(max_size=10) # Scarcity Layer (Working Memory limit)
         self.current_focus = None # Directed Dreaming Target
 
     def set_focus(self, topic):
@@ -1196,6 +1202,17 @@ class AgentMotivation:
 
                                             # 1. Save to Graph (RAM/SQLite)
                                             engram_layer.add_triplet(s, p, o, category=category)
+                                            
+                                            # 1.5. Update Working Memory (Scarcity Layer)
+                                            # We store Subject as Key, Predicate->Object as Value.
+                                            # Importance: 0.8 base for new insights
+                                            self.memory_manager.store_data(
+                                                key=s, 
+                                                value=f"{p} -> {o}", 
+                                                importance=0.8, 
+                                                category=category
+                                            )
+
                                             # 2. Save to ChromaDB (Semantic)
                                         episodic_layer.add_fact_triplet(s, p, o)
                                         
