@@ -4,6 +4,8 @@ from chromadb.utils import embedding_functions
 import datetime
 import os
 import json
+import heapq
+from collections import OrderedDict
 
 import sqlite3
 
@@ -580,6 +582,83 @@ class EpisodicLayer:
                 if results['metadatas'] and results['metadatas'][0]:
                     return results['metadatas'][0][0]['solution']
         return None
+
+# --- Memory Manager (Short-Term Scarcity Layer) ---
+class MemoryManager:
+    def __init__(self, max_size=5, db_path="knowledge_graph.db"): # Small size for testing scarcity
+        self.max_size = max_size
+        self.db_path = db_path
+        self.kv_cache = OrderedDict()
+        self.importance_heap = [] # Min-heap: (importance, key)
+
+    def _archive_to_db(self, data, priority_flag="Baja Prioridad"):
+        """Archives evicted data to the knowledge graph with a priority flag."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''CREATE TABLE IF NOT EXISTS knowledge_graph
+                                  (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, priority_flag TEXT)''')
+                cursor.execute("INSERT INTO knowledge_graph (data, priority_flag) VALUES (?, ?)", 
+                               (str(data), priority_flag))
+                conn.commit()
+            print(f"   💾 [MemoryManager] Archived to DB: '{str(data)[:30]}...' ({priority_flag})")
+        except Exception as e:
+            print(f"   ❌ [MemoryManager] Archiving Failed: {e}")
+
+
+    def store_data(self, key, value, importance):
+        """
+        Stores data with 'Ricardo's Scarcity'.
+        If cache is full, evicts the LEAST important item.
+        """
+        timestamp = datetime.datetime.now().isoformat()
+        
+        # 1. Update/Insert
+        self.kv_cache[key] = {
+            "value": value,
+            "importance": importance,
+            "timestamp": timestamp
+        }
+        
+        # 2. Push to heap (Python heapq is a min-heap)
+        # We push a tuple. If importances are equal, it compares keys (strings).
+        heapq.heappush(self.importance_heap, (importance, key))
+        
+        # 3. Check Scarcity
+        if len(self.kv_cache) > self.max_size:
+            self.compact_kvcache()
+
+    def compact_kvcache(self):
+        """
+        Logic: 'Ricardo's Scarcity'.
+        When resources (Context/VRAM) are full, valid but less important concepts must die.
+        """
+        print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Compacting based on Importance...")
+        
+        while len(self.kv_cache) > self.max_size:
+            # Pop the smallest item (Lowest importance)
+            lowest_importance, key_to_evict = heapq.heappop(self.importance_heap)
+            
+            # Validity Check: The item might have been updated with higher importance later.
+            # In a full valid implementation, we'd handle 'lazy deletion' or update the heap.
+            # Here, we check if the current cache value's importance matches the popped one.
+            # If cache has HIGHER importance, it means this heap entry is stale.
+            if key_to_evict in self.kv_cache:
+                current_data = self.kv_cache[key_to_evict]
+                if current_data["importance"] > lowest_importance:
+                    # Stale entry, ignore and try next content
+                    continue
+                
+                # It is the valid entry, Evict it.
+                # Archive before deletion
+                self._archive_to_db(self.kv_cache[key_to_evict], "Baja Prioridad")
+                
+                del self.kv_cache[key_to_evict]
+                print(f"   👋 Evicted Node: '{key_to_evict}' (Importance: {lowest_importance})")
+    
+    def get_state(self):
+        return {k: v['importance'] for k, v in self.kv_cache.items()}
+
 
 # Simple test if run directly
 if __name__ == "__main__":

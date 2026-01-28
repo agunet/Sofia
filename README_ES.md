@@ -116,7 +116,9 @@ Mientras chateas en `main.py` o usas el Dashboard:
 - [x] **Laboratorio Mental:** Motor de simulación para contrafactuales.
 - [x] **Protocolo Génesis:** Sembrado automático si el cerebro está vacío.
 - [x] **Análisis de Estrategia:** Aprendizaje de reglas retóricas.
-- [x] **Investigación Autónoma:** Capacidad de leer artículos completos (vía Playwright) cuando los resúmenes no bastan.
+- [x] **Investiga Autónoma 2.0:** "Modo Web Reader" robusto con `duckduckgo_search` para evitar bloqueos y "Modo Guerrilla" (delays humanos).
+- [x] **Gestión de Escasez (Ricardo's Scarcity):** `MemoryManager` con KV Cache compacto y desalojo basado en importancia (Heap).
+- [x] **Archivado de Memoria:** Los nodos desalojados del caché se archivan en el Grafo (SQLite) con flag de "Baja Prioridad".
 
 ---
 
