@@ -127,7 +127,7 @@ def main():
             # COMMAND: Force Synthesis
             if user_input.lower() == "/synthesize":
                 print(f"{C.OKBLUE}🧬 [Sistema] Iniciando síntesis de memoria...{C.ENDC}")
-                success = motivator.synthesize_memory(engram, client, MODEL_NAME)
+                success = motivator.synthesize_memory(engram, client, MODEL_NAME, episodic_layer=episodic)
                 if not success:
                     print("   (No se encontraron nodos densos para sintetizar)")
                 continue
