@@ -591,22 +591,33 @@ class MemoryManager:
         self.kv_cache = OrderedDict()
         self.importance_heap = [] # Min-heap: (importance, key)
 
-    def _archive_to_db(self, data, priority_flag="Baja Prioridad"):
+    def _archive_to_db(self, data, priority_flag="Baja Prioridad", category="General"):
         """Archives evicted data to the knowledge graph with a priority flag."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('''CREATE TABLE IF NOT EXISTS knowledge_graph
-                                  (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, priority_flag TEXT)''')
-                cursor.execute("INSERT INTO knowledge_graph (data, priority_flag) VALUES (?, ?)", 
-                               (str(data), priority_flag))
+                
+                # Ensure table exists with correct schema
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_graph'")
+                if not cursor.fetchone():
+                    cursor.execute('''CREATE TABLE knowledge_graph
+                                      (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, priority_flag TEXT, category TEXT)''')
+                else:
+                    # Check if category column exists, add if not (Migration)
+                    cursor.execute("PRAGMA table_info(knowledge_graph)")
+                    columns = [info[1] for info in cursor.fetchall()]
+                    if "category" not in columns:
+                        cursor.execute("ALTER TABLE knowledge_graph ADD COLUMN category TEXT")
+
+                cursor.execute("INSERT INTO knowledge_graph (data, priority_flag, category) VALUES (?, ?, ?)", 
+                               (str(data), priority_flag, category))
                 conn.commit()
-            print(f"   💾 [MemoryManager] Archived to DB: '{str(data)[:30]}...' ({priority_flag})")
+            print(f"   💾 [MemoryManager] Archived to DB: '{str(data)[:30]}...' ({priority_flag}, {category})")
         except Exception as e:
             print(f"   ❌ [MemoryManager] Archiving Failed: {e}")
 
 
-    def store_data(self, key, value, importance):
+    def store_data(self, key, value, importance, category="General"):
         """
         Stores data with 'Ricardo's Scarcity'.
         If cache is full, evicts the LEAST important item.
@@ -617,7 +628,8 @@ class MemoryManager:
         self.kv_cache[key] = {
             "value": value,
             "importance": importance,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "category": category
         }
         
         # 2. Push to heap (Python heapq is a min-heap)
@@ -651,7 +663,9 @@ class MemoryManager:
                 
                 # It is the valid entry, Evict it.
                 # Archive before deletion
-                self._archive_to_db(self.kv_cache[key_to_evict], "Baja Prioridad")
+                item_to_archive = self.kv_cache[key_to_evict]
+                cat = item_to_archive.get("category", "General")
+                self._archive_to_db(item_to_archive, "Baja Prioridad", category=cat)
                 
                 del self.kv_cache[key_to_evict]
                 print(f"   👋 Evicted Node: '{key_to_evict}' (Importance: {lowest_importance})")
