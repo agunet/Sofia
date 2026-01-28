@@ -110,6 +110,7 @@ While chatting in `main.py` or using the Dashboard inputs:
 - [x] **Feedback Loop:** Strong corrections reduce confidence or delete nodes.
 - [x] **Memory Compression:** Synthesis of dispersed facts into principles.
 - [x] **Reasoning Cache:** "Muscle Memory" for repeated complex questions.
+- [x] **Semantic Relevance Filter:** Cosine distance pruning to prevent context flooding.
 
 ### Autonomy
 - [x] **Directed Dreaming:** Ability to focus the autonomous agent on a topic.

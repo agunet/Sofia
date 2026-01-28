@@ -108,6 +108,7 @@ Mientras chateas en `main.py` o usas el Dashboard:
 - [x] **Feedback Loop:** Castigo y eliminación de nodos ante correcciones.
 - [x] **Compresión de Memoria:** Síntesis de hechos en principios.
 - [x] **Caché de Razonamiento:** "Memoria Muscular" para problemas complejos.
+- [x] **Filtro de Relevancia Semántica:** Poda por distancia cosidinal para evitar inundación de contexto.
 
 ### Autonomía
 - [x] **Sueño Dirigido:** Capacidad de enfocar al agente autónomo.

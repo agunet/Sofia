@@ -246,7 +246,13 @@ class GraphEngram:
         # "Plasticity": Use vector search to find concepts that don't match exactly but are semantically related.
         if episodic_layer:
             # 1. Search vector DB for related memories/facts
-            semantic_hits = episodic_layer.search_similar(text, n_results=3)
+            # Enforce threshold to prevent "Semantic Flooding"
+            semantic_hits = episodic_layer.search_similar(text, n_results=5, threshold=1.2)
+            
+            # Debug Log (Visible in console to confirm filtering works)
+            if semantic_hits:
+                print(f"   ↳ [Memoria] {len(semantic_hits)} recuerdos relevantes inyectados.")
+            
             # 2. Augment the text content to "awaken" those nodes in the graph
             # We simply append the found text so the token-based lookup finds them.
             if semantic_hits:
@@ -414,17 +420,36 @@ class EpisodicLayer:
             ids=[f"fact_{timestamp}_{hashlib.md5(fact_text.encode()).hexdigest()[:8]}"]
         )
 
-    def search_similar(self, query, n_results=2):
-        """Retrieves similar past experiences."""
+    def search_similar(self, query, n_results=3, threshold=1.2):
+        """
+        Retrieves similar past experiences.
+        Args:
+            query: The search text.
+            n_results: Max hits to return.
+            threshold: Max L2 distance (Lower is better). 
+                       < 0.5: Very close match.
+                       < 1.0: Semantically related.
+                       > 1.4: Likely unrelated noise.
+        """
         results = self.collection.query(
             query_texts=[query],
             n_results=n_results
         )
         
-        # ChromaDB returns a dict with lists. We'll simplify this.
-        if results['documents']:
-            return results['documents'][0] # Return list of strings
-        return []
+        filtered_docs = []
+        if results['documents'] and results['distances']:
+            docs = results['documents'][0]
+            dists = results['distances'][0]
+            
+            for doc, dist in zip(docs, dists):
+                if dist < threshold:
+                    filtered_docs.append(doc)
+                else:
+                    # Optional: Log pruning if verbose
+                    # print(f"[Episodic] Pruned: '{doc[:20]}...' (Dist: {dist:.2f} > {threshold})")
+                    pass
+                    
+        return filtered_docs
 
     # --- REASONING CACHE METHODS ---
     def cache_reasoning(self, problem, solution):
