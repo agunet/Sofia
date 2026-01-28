@@ -40,6 +40,9 @@ class GraphEngram:
                 cursor.execute("ALTER TABLE nodes ADD COLUMN access_count INTEGER DEFAULT 0")
                 cursor.execute("ALTER TABLE nodes ADD COLUMN last_accessed TEXT")
             
+            if "category" not in columns:
+                cursor.execute("ALTER TABLE nodes ADD COLUMN category TEXT")
+            
             # Table for relations/edges with Confidence Score
             # - confidence: 0.0 to 1.0 (How certain are we of this link?)
             # - source: Provenance (User, Web, Self-Inference)
@@ -110,7 +113,7 @@ class GraphEngram:
         clean = "".join(filter(str.isalnum, text)).lower()
         return hashlib.sha256(clean.encode()).hexdigest()
 
-    def add_triplet(self, subject, relation, target, confidence=1.0, source_type="User"):
+    def add_triplet(self, subject, relation, target, confidence=1.0, source_type="User", category="General"):
         # Normalize subject for label
         norm_subject = subject.strip()
         if len(norm_subject) > 50: norm_subject = norm_subject[:47] + "..."
@@ -121,10 +124,14 @@ class GraphEngram:
         with sqlite3.connect(self.path) as conn:
             cursor = conn.cursor()
             # 1. Ensure node exists (Initialize with base importance 0.5)
-            # If it already exists, we might want to slightly boost importance? For now, leave as is.
-            cursor.execute("INSERT OR IGNORE INTO nodes (id, label, importance, access_count, last_accessed) VALUES (?, ?, 0.5, 0, ?)", 
-                           (subject_id, norm_subject, datetime.datetime.now().isoformat()))
+            # We use INSERT OR IGNORE, but if it exists, we might want to update the category if it was NULL?
+            cursor.execute("INSERT OR IGNORE INTO nodes (id, label, importance, access_count, last_accessed, category) VALUES (?, ?, 0.5, 0, ?, ?)", 
+                           (subject_id, norm_subject, datetime.datetime.now().isoformat(), category))
             
+            # Update category if it was previously NULL or "General" and we have a better one
+            if category and category != "General":
+                 cursor.execute("UPDATE nodes SET category = ? WHERE id = ? AND (category IS NULL OR category = 'General')", (category, subject_id))
+
             # 2. Check for duplicate edge
             cursor.execute("SELECT 1 FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
                            (subject_id, relation, target))

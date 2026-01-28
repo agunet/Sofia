@@ -1024,8 +1024,9 @@ class AgentMotivation:
                             Concepto: {concept}
                             Info: "{final_data}"
                             
-                            Formato: SUJETO -> PREDICADO -> OBJETO
+                            Formato: SUJETO -> PREDICADO -> OBJETO | CATEGORIA
                             REGLA: Extrae tripletas científicas o fácticas.
+                            CATEGORIAS: Philosophy, Science, Art, History, Tech, General.
                             """
                     except Exception as e:
                         if self.verbose:
@@ -1050,7 +1051,8 @@ class AgentMotivation:
                     
                     Usa tu base de conocimiento latente para descubrir UNA NUEVA relación lógica o filosófica sobre esto.
                     
-                    Formato: SUJETO -> PREDICADO -> OBJETO
+                    Formato: SUJETO -> PREDICADO -> OBJETO | CATEGORIA
+                    CATEGORIAS: Philosophy, Science, Art, History, Tech, General.
                     
                     Ejemplos de reflexión:
                     Concepto: "Vida" => Vida -> requiere -> Energía
@@ -1075,7 +1077,8 @@ class AgentMotivation:
                 
                 El texto contiene una deducción paso a paso. Tu trabajo es cristalizar la lógica subyacente en el Grafo.
                 
-                Formato requerido: CONCEPTO -> IMPLICA/REQUIERE/CAUSA -> CONSECUENCIA
+                Formato requerido: CONCEPTO -> IMPLICA/REQUIERE/CAUSA -> CONSECUENCIA | CATEGORIA
+                CATEGORIAS: Logic, Science, Philosophy, Math.
                 
                 Ejemplo:
                 Razonamiento: "Si A es mayor que B y B mayor que C, A es mayor que C."
@@ -1092,7 +1095,8 @@ class AgentMotivation:
                 Analiza la interacción y extrae RELACIONES PERMANENTES para un Grafo de Conocimiento.
                 Ignora saludos o charla trivial.
                 
-                Formato requerido: SUJETO -> PREDICADO -> OBJETO
+                Formato requerido: SUJETO -> PREDICADO -> OBJETO | CATEGORIA
+                CATEGORIAS: Geography, Science, Philosophy, General.
                 
                 Ejemplos:
                 "La tierra es redonda" => Tierra -> es -> Redonda
@@ -1152,7 +1156,16 @@ class AgentMotivation:
 
                             s = clean_part(parts[0])
                             p = clean_part(parts[1])
-                            o = clean_part(parts[2])
+                            # Check if Object has Category
+                            o_full = clean_part(parts[2])
+                            o = o_full
+                            category = "General"
+                            
+                            if "|" in o_full:
+                                subparts = o_full.split("|")
+                                o = subparts[0].strip()
+                                if len(subparts) > 1:
+                                    category = subparts[1].strip()
 
                             if s and p and o:
                                 # Standardize: Only save if subject and object are concise
@@ -1182,7 +1195,7 @@ class AgentMotivation:
                                                  print(f"✅ [Cross-Validation] Relación validada con '{synonym}'.")
 
                                             # 1. Save to Graph (RAM/SQLite)
-                                            engram_layer.add_triplet(s, p, o)
+                                            engram_layer.add_triplet(s, p, o, category=category)
                                             # 2. Save to ChromaDB (Semantic)
                                         episodic_layer.add_fact_triplet(s, p, o)
                                         
