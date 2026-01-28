@@ -109,6 +109,7 @@ Mientras chateas en `main.py` o usas el Dashboard:
 - [x] **Compresión de Memoria:** Síntesis de hechos en principios.
 - [x] **Caché de Razonamiento:** "Memoria Muscular" para problemas complejos.
 - [x] **Filtro de Relevancia Semántica:** Poda por distancia cosidinal para evitar inundación de contexto.
+- [x] **Poda Sináptica:** Eliminación autónoma de memorias débiles y sin conexión al núcleo durante el sueño.
 
 ### Autonomía
 - [x] **Sueño Dirigido:** Capacidad de enfocar al agente autónomo.

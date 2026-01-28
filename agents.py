@@ -383,8 +383,25 @@ class AgentEvolution:
     def evolve_step(self, logs, client, model_name, recent_discovery=None):
         pass
 
-    def prune_memory(self, engram_layer, client, model_name):
+    def prune_memory(self, engram_layer, client, model_name, episodic_layer=None):
         """Garbage Collection: Finds and removes low-quality nodes."""
+        
+        # --- 1. VECTOR PRUNING (Synaptic Pruning) ---
+        if episodic_layer:
+            import json
+            core_concepts = ["Sofía", "Usuario"] # Fallback
+            try:
+                with open("personality.json", "r") as f:
+                    data = json.load(f)
+                    core_concepts = data.get("core_concepts", core_concepts)
+            except:
+                pass
+                
+            pruned_vectors = episodic_layer.prune_synapses(core_concepts)
+            if pruned_vectors > 0:
+                print(f"🧹 [Synaptic Pruning] Limpieza vectorial completada: {pruned_vectors} items eliminados.")
+
+        # --- 2. GRAPH PRUNING (GraphEngram) ---
         candidates = engram_layer.get_isolated_nodes()
         if not candidates: return False
         
@@ -423,7 +440,7 @@ class AgentEvolution:
                 pass
         
         if pruned_count > 0:
-            print(f"🧹 [Garbage Collector] Se han eliminado {pruned_count} nodos basura.")
+            print(f"🧹 [Garbage Collector] Se han eliminado {pruned_count} nodos basura del Grafo.")
             return True
         
         # --- SYNAPTIC DECAY ---

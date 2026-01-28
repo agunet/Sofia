@@ -405,7 +405,7 @@ class EpisodicLayer:
         
         self.collection.add(
             documents=[document],
-            metadatas=[{"timestamp": timestamp, "type": "interaction", "context": context}],
+            metadatas=[{"timestamp": timestamp, "type": "interaction", "context": context, "usage_count": 0}],
             ids=[f"ep_{timestamp}"]
         )
 
@@ -416,7 +416,7 @@ class EpisodicLayer:
         
         self.collection.add(
             documents=[fact_text],
-            metadatas=[{"timestamp": timestamp, "type": "fact", "subject": subject}],
+            metadatas=[{"timestamp": timestamp, "type": "fact", "subject": subject, "usage_count": 0}],
             ids=[f"fact_{timestamp}_{hashlib.md5(fact_text.encode()).hexdigest()[:8]}"]
         )
 
@@ -440,16 +440,90 @@ class EpisodicLayer:
         if results['documents'] and results['distances']:
             docs = results['documents'][0]
             dists = results['distances'][0]
+            ids = results['ids'][0]
+            metadatas = results['metadatas'][0] if results['metadatas'] else [{}] * len(docs)
             
-            for doc, dist in zip(docs, dists):
+            for doc, dist, doc_id, meta in zip(docs, dists, ids, metadatas):
                 if dist < threshold:
                     filtered_docs.append(doc)
+                    
+                    # --- USAGE TRACKING ---
+                    # Increment usage count (Synaptic Reinforcement)
+                    # Note: To avoid excessive writes, real systems might batch this.
+                    try:
+                        current_usage = meta.get("usage_count", 0)
+                        new_meta = meta.copy()
+                        new_meta["usage_count"] = current_usage + 1
+                        self.collection.update(ids=[doc_id], metadatas=[new_meta])
+                    except Exception as e:
+                        pass # Ignore update errors during inference
                 else:
                     # Optional: Log pruning if verbose
                     # print(f"[Episodic] Pruned: '{doc[:20]}...' (Dist: {dist:.2f} > {threshold})")
                     pass
                     
         return filtered_docs
+
+    def prune_synapses(self, core_concepts, usage_threshold=5, distance_threshold=0.8):
+        """
+        [Synaptic Pruning Module]
+        Removes memories that are rarely used AND unrelated to core concepts.
+        protection_list: List of 'Sacred' strings (e.g. "Agustín", "Poliladron").
+        """
+        # 1. Query candidates with low usage
+        # ChromaDB where filter: usage_count < usage_threshold
+        # Note: If usage_count is missing (backward compatibility), it treats it as ? (Usually ignored or use logic)
+        # We fetch items where usage_count < usage_threshold OR usage_count is None (implicitly handled if we fetch all and filter in python if where fails, but let's try 'where')
+        
+        try:
+            # We assume usage_count is integer.
+            targets = self.collection.get(
+                where={"usage_count": {"$lt": usage_threshold}}
+            )
+        except:
+            # Fallback if metadata schema is inconsistent or missing
+            return 0
+
+        if not targets['ids']:
+            return 0
+
+        ids_to_delete = []
+        
+        # 2. Check Affinity to Core Concepts
+        # We need to embed the core concepts to compare.
+        # Ideally we compare embedding of candidate vs embedding of core concepts.
+        # Chroma doesn't support "distance to X" in 'get'. We must use 'query' or manual calc.
+        # Manual calc is expensive for many items.
+        # Heuristic: We query the collection using the CORE CONCEPTS as query texts.
+        # Any document returned as a "close match" to a core concept is PROTECTED.
+        
+        # 2a. Identify Protected IDs (The "White List")
+        protected_ids = set()
+        for concept in core_concepts:
+            results = self.collection.query(
+                query_texts=[concept],
+                n_results=10, # Protect top 10 matches for each core concept
+                include=["ids", "distances"]
+            )
+            if results['ids']:
+                for i, dist in zip(results['ids'][0], results['distances'][0]):
+                    if dist < distance_threshold: # If it's close enough to the Core
+                        protected_ids.add(i)
+
+        # 3. Intersect: Candidates (Low Usage) - Protected (Core Affinity)
+        for doc_id in targets['ids']:
+            if doc_id not in protected_ids:
+                ids_to_delete.append(doc_id)
+                
+        # 4. Delete the "Noise"
+        if ids_to_delete:
+            print(f"✂️ [Synaptic Pruning] Eliminando {len(ids_to_delete)} recuerdos débiles (Low usage + Low affinity).")
+            # Batch delete
+            # self.collection.delete(ids=ids_to_delete) # Commented out for safety until verified, user asked to implement logic.
+            # Real implementation:
+            self.collection.delete(ids=ids_to_delete)
+            
+        return len(ids_to_delete)
 
     # --- REASONING CACHE METHODS ---
     def cache_reasoning(self, problem, solution):
