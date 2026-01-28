@@ -129,4 +129,19 @@ While chatting in `main.py` or using the Dashboard inputs:
 *   `knowledge_graph.db`: The persistent brain.
 
 ---
+
+## 📚 Related Papers & References
+
+The system architecture is based on the following research components (see `papers/`):
+
+1.  **Engram** (Data Store/Memory): *Physical substrate of memory.*
+    *   Impl: `memory_systems.py` (GraphEngram).
+2.  **Sophia** (Supervisor/Consciousness): *Scalable Stochastic Supervision.*
+    *   Impl: `agents.py` (AgentCheck/Monitor).
+3.  **HRM** (Quality Filter/Rigor): *Hallucination/Hindsight Reasoning Mechanism.*
+    *   Impl: `AgentCheck.validate_response`.
+4.  **RSA** (Synthesis Engine/Wisdom): *Recursive Self-Aggregation.*
+    *   Impl: `AgentReasoning` (Deep Thinking Loop).
+
+---
 **License:** MIT

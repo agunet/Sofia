@@ -197,6 +197,35 @@ class GraphEngram:
             cursor.execute("DELETE FROM nodes WHERE id = ?", (node_id,))
             conn.commit()
 
+    def decay_synapses(self, decay_rate=0.01, prune_threshold=0.1):
+        """
+        'Plasticity': Applies universal decay to node importance.
+        Nodes that are not reinforced (accessed) will eventually fade away.
+        """
+        import sqlite3
+        with sqlite3.connect(self.path) as conn:
+            cursor = conn.cursor()
+            
+            # 1. Apply Decay to ALL nodes
+            cursor.execute("UPDATE nodes SET importance = MAX(0.0, importance - ?)", (decay_rate,))
+            
+            # 2. Identify weak nodes to prune (Low importance AND low usage)
+            # We protect nodes with high access_count (long-term memory candidates) even if importance fluctuates
+            cursor.execute("SELECT id, label FROM nodes WHERE importance < ? AND access_count < 2", (prune_threshold,))
+            weak_nodes = cursor.fetchall()
+            
+            if weak_nodes:
+                print(f"📉 [Synaptic Decay] Pruning {len(weak_nodes)} weak connections...")
+                ids_to_prune = [n[0] for n in weak_nodes]
+                
+                # Batch delete (Optimization)
+                placeholders = ','.join('?' * len(ids_to_prune))
+                cursor.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders})", ids_to_prune)
+                cursor.execute(f"DELETE FROM nodes WHERE id IN ({placeholders})", ids_to_prune)
+                
+            conn.commit()
+            return len(weak_nodes)
+
     def exists(self, subject, relation, target):
         """Checks if a triplet already exists to avoid duplication loops."""
         norm_subject = subject.strip()
@@ -209,9 +238,24 @@ class GraphEngram:
                            (subject_id, relation, target))
             return cursor.fetchone() is not None
 
-    def get_context(self, text, depth=2):
+    def get_context(self, text, depth=2, episodic_layer=None):
         """Retrieves related context for entities recognized in the text (up to depth 2)."""
         normalized_text = text.lower()
+        
+        # --- PHASE 0: Semantic Intersection (Vector -> Graph) ---
+        # "Plasticity": Use vector search to find concepts that don't match exactly but are semantically related.
+        if episodic_layer:
+            # 1. Search vector DB for related memories/facts
+            semantic_hits = episodic_layer.search_similar(text, n_results=3)
+            # 2. Augment the text content to "awaken" those nodes in the graph
+            # We simply append the found text so the token-based lookup finds them.
+            if semantic_hits:
+                augmented_content = " ".join(semantic_hits)
+                # We interpret this as: "The user mentioned X, which reminds me of [Vector Results]..."
+                # Normalized text now includes these "awakened" concepts
+                normalized_text += " " + augmented_content.lower()
+                text += " " + augmented_content # For token splitting below
+
         concepts = []
         seen_ids = set()
         
@@ -406,10 +450,11 @@ class EpisodicLayer:
             where={"type": "reasoning_cache"} # Filter only cache entries
         )
         
-        if results['documents'] and results['distances']:
+        if results['documents'] and results['documents'][0] and results['distances'] and results['distances'][0]:
             dist = results['distances'][0][0]
             if dist < threshold:
-                return results['metadatas'][0][0]['solution']
+                if results['metadatas'] and results['metadatas'][0]:
+                    return results['metadatas'][0][0]['solution']
         return None
 
 # Simple test if run directly

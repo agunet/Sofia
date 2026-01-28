@@ -127,4 +127,19 @@ Mientras chateas en `main.py` o usas el Dashboard:
 *   `knowledge_graph.db`: El cerebro persistente.
 
 ---
+
+## 📚 Referencias y Papers Implementados
+
+La arquitectura del sistema se basa en los siguientes componentes de investigación (ver carpeta `papers/`):
+
+1.  **Engram**: Es el almacén de datos (Memoria).
+    *   *Implementación*: `memory_systems.py` (GraphEngram).
+2.  **Sophia (Paper)**: Es el supervisor (Consciencia).
+    *   *Implementación*: `agents.py` (Monitor/Consciencia).
+3.  **HRM**: Es el filtro de calidad (Rigor).
+    *   *Implementación*: `AgentCheck.validate_response`.
+4.  **RSA**: Es el motor de síntesis (Sabiduría).
+    *   *Implementación*: `AgentReasoning` (Bucle de Pensamiento Profundo).
+
+---
 **Licencia:** MIT

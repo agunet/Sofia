@@ -115,7 +115,7 @@ class AgentReasoning:
     Agente 1.5: Motor de Razonamiento 'Sistema 2' (El Pensador)
     Ejecuta votación Best-of-N para problemas complejos.
     """
-    def solve_with_voting(self, problem, client, model_name, episodic_layer=None, n_attempts=3, history=None):
+    def solve_with_voting(self, problem, client, model_name, episodic_layer=None, n_attempts=3, history=None, context=None):
         # 0. Check Cache First
         if episodic_layer:
             cached_solution = episodic_layer.lookup_cache(problem)
@@ -143,6 +143,12 @@ class AgentReasoning:
                 parts = entry.split(": ", 1)
                 if len(parts) > 1:
                     history_messages.append({"role": role, "content": parts[1]})
+
+        # Inject Graph/Semantic Context if available
+        context_msg = ""
+        if context:
+             context_msg = f"\n[CONTEXTO DE MEMORIA (HECHOS CONOCIDOS)]:\n{context}\n(Usa estos hechos si son relevantes, pero verificálos)."
+
 
         # Ensure we run at least n_attempts, cycling through personas if needed
         for i in range(n_attempts):
@@ -174,7 +180,7 @@ class AgentReasoning:
                 # Prepare message sequence with history
                 messages = [{"role": "system", "content": persona}]
                 messages.extend(history_messages)
-                messages.append({"role": "user", "content": final_user_content})
+                messages.append({"role": "user", "content": final_user_content + context_msg})
 
                 response = client.chat.completions.create(
                     model=model_name,
@@ -182,61 +188,109 @@ class AgentReasoning:
                     temperature=temp,
                     max_tokens=800
                 )
-                candidates.append(response.choices[0].message.content.strip())
-                
-                # Meta-Reasoning Trace
-                expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo"]
-                current_expert = expert_titles[i % len(expert_titles)]
-                print(f"\n   ↳ [Experto: {current_expert}] Hipótesis generada.", end="", flush=True)
-            except:
+                if response.choices:
+                    candidates.append(response.choices[0].message.content.strip())
+                    # Meta-Reasoning Trace
+                    expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo"]
+                    current_expert = expert_titles[i % len(expert_titles)]
+                    print(f"\n   ↳ [Experto: {current_expert}] Hipótesis generada.", end="", flush=True)
+                else:
+                    print(f"\n   ↳ [Experto] Error: Respuesta vacía del modelo.")
+
+            except Exception as e:
+                print(f"\n   ↳ [Experto] Error generando: {e}")
                 pass
 
-        if not candidates: return "Error generando pensamientos."
+        if not candidates: return "Error: No se pudieron generar pensamientos (Lista vacía)."
 
-        # 2. Synthesize consensus
-        print(" ⚖️  Juzgando...", end="", flush=True)
-
-        consensus_prompt = f"""
-        Actúa como un Juez Intelectual Supremo.
-        Tienes ante ti {len(candidates)} soluciones propuestas por diferentes expertos (Lógico, Lateral, Crítico, Filósofo).
+        # --- RSA (Recursive Self-Aggregation) Loop ---
+        # Instead of a single 'Judge' call, we run an iterative refinement loop.
         
-        SOLUCIONES DADAS:
-        """
-        for i, c in enumerate(candidates):
-            consensus_prompt += f"\n--- SOLUCIÓN {i+1} ---\n{c}\n"
+        rsa_rounds = 2 # Number of refinement cycles
+        current_candidates = candidates
+        current_best_answer = ""
+        
+        print(f"\n 🔄 [RSA] Iniciando Agregación Recursiva ({rsa_rounds} ciclos)...")
+        
+        for r in range(rsa_rounds):
+            is_final_round = (r == rsa_rounds - 1)
             
-        consensus_prompt += f"""
-        PROBLEMA ORIGINAL: {problem}
-        
-        TU TAREA:
-        1. Evalúa las fortalezas de cada una.
-        2. Construye una RESPUESTA FINAL que integre lo mejor de todas.
-        3. INCLUYE UN "META-COMENTARIO" al principio explicando tu proceso de decisión.
-        
-        FORMATO DE SALIDA:
-        [META-RAZONAMIENTO]: <Breve explicación de la síntesis, qué experto ganó y por qué>
-        
-        <Respuesta Final al Usuario>
-        """
-
-        try:
-            final_verdict = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": "Eres un juez lógico imparcial y estricto. Sintetiza la mejor verdad."},
-                    {"role": "user", "content": consensus_prompt}
-                ],
-                temperature=0.1
-            )
-            final_answer = final_verdict.choices[0].message.content.strip()
+            # Construct RSA Prompt based on iteration
+            rsa_prompt = f"""
+            Actúa como un Motor de Razonamiento Recursivo (Ciclo {r+1}/{rsa_rounds}).
+            Tu objetivo es converger hacia la VERDAD ÚNICA Y ÓPTIMA.
             
-            # Save to Cache
-            if episodic_layer:
-                episodic_layer.cache_reasoning(problem, final_answer)
+            PROBLEMA ORIGINAL: {problem}
+            
+            CANDIDATOS DISPONIBLES (Hipótesis de expertos o iteraciones previas):
+            """
+            
+            for i, c in enumerate(current_candidates):
+                # Truncate very long candidates to fit context if needed, but usually okay for 4 experts
+                rsa_prompt += f"\n--- CANDIDATO {i+1} ---\n{c}\n"
+            
+            if is_final_round:
+                instruction = """
+                INSTRUCCIÓN FINAL:
+                Sintetiza una RESPUESTA DEFINITIVA Y PERFECTA.
+                1. Integra los mejores insights Lógicos, Laterales y Filosóficos.
+                2. Corrige cualquier error factual o falacia lógica detectada en los candidatos.
+                3. Tu respuesta debe ser autónoma y completa.
                 
-            return final_answer
-        except:
-            return candidates[0] # Fallback
+                FORMATO DE SALIDA:
+                [META-RAZONAMIENTO]: <Breve resumen de cómo se llegó a la síntesis>
+                
+                <Respuesta Final>
+                """
+            else:
+                instruction = """
+                INSTRUCCIÓN DE REFINAMIENTO:
+                Analiza estos candidatos. Encuentra contradicciones, errores o puntos ciegos.
+                Genera una NUEVA versión unificada que sea mejor que la suma de las partes.
+                Esta versión se usará como input para la siguiente ronda de mejora.
+                
+                Sé crítico. Si todos están mal, propón una nueva vía.
+                """
+            
+            rsa_prompt += instruction
+
+            try:
+                print(f"   ↳ [Ciclo {r+1}] Agregando y refinando...", end="", flush=True)
+                
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": "Eres un sistema de optimización de inteligencia recursiva. Buscas la verdad absoluta."},
+                        {"role": "user", "content": rsa_prompt}
+                    ],
+                    temperature=0.2, # Lower temp for convergence
+                    max_tokens=2048
+                )
+                
+                refined_output = response.choices[0].message.content.strip()
+                current_best_answer = refined_output
+                
+                # feedback for next loop: The output becomes the single strong 'candidate' to be challenged or polished
+                # Optionally, we could keep original experts AND the new one, but standard RSA often collapses to the refined one.
+                # Let's keep the refined one as the primary input, maybe keep 1 random original expert for 'mutation' diversity?
+                # For stability, let's just feed the refined output recursively as a single improvable artifact.
+                current_candidates = [refined_output] 
+                
+                print(" ✔ Hecho.")
+                
+            except Exception as e:
+                print(f" ❌ Error en RSA: {e}")
+                return candidates[0] # Fallback
+
+        # Check for [META-RAZONAMIENTO] tag formatting
+        final_answer = current_best_answer
+
+        # Save to Cache
+        if episodic_layer:
+            episodic_layer.cache_reasoning(problem, final_answer)
+            
+        return final_answer
+
 
     def run_simulation(self, scenario, client, model_name):
         """
@@ -371,6 +425,13 @@ class AgentEvolution:
         if pruned_count > 0:
             print(f"🧹 [Garbage Collector] Se han eliminado {pruned_count} nodos basura.")
             return True
+        
+        # --- SYNAPTIC DECAY ---
+        # Also run the decay process for plastic forgetting
+        decayed = engram_layer.decay_synapses()
+        if decayed > 0:
+             print(f"📉 [Synaptic Decay] Consolidated memory structure.")
+
         return False
 
 class AgentSearch:
@@ -979,13 +1040,19 @@ class AgentMotivation:
         try:
             # ... (Existing LLM call logic will use 'analysis_prompt')
             
+            # Determines Temperature based on Mode
+            # Creative Noise (Plasticity) only for Generative Dreaming
+            current_temp = 0.0
+            if not unprocessed: # Generative Mode
+                current_temp = 0.8 # High temp for creativity
+            
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "Eres un arquitecto de conocimiento. Extrae tripletas simples."},
                     {"role": "user", "content": analysis_prompt}
                 ],
-                temperature=0.0
+                temperature=current_temp
             )
             
             result = response.choices[0].message.content.strip()

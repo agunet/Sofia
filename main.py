@@ -145,9 +145,14 @@ def main():
                 episodic.add_episode(f"/simulate {scenario}", result, context="Simulation")
                 continue
 
+            # --- PHASE 0.5: ALWAYS Retrieve Context (Semantic + Graph) ---
+            # User Requirement: "siempre tiene que hacer la busqueda semantica"
+            graph_context = engram.get_context(user_input, episodic_layer=episodic)
+            if graph_context:
+                print(f"{C.BOLD}[Graph Memory] Contexto encontrado:\n{graph_context}{C.ENDC}")
+            
             # --- PHASE 1: Parsing & Hashing (Agent 1: Monitor) ---
-            # Initialize context variables early to avoid UnboundLocalError
-            graph_context = None
+            # Initialize context variables early
             context_memories = ""
             mood = "Neutral"
             
@@ -174,8 +179,8 @@ def main():
             if decision["action"] == "deep_think":
                 print(f"{C.WARNING}[Monitor] Complejidad detectada. Activando Sistema 2...{C.ENDC}")
                 reasoner = AgentReasoning() # Initialize on demand or keep persistent
-                # Execute Voting with History Context AND Cache
-                answer = reasoner.solve_with_voting(user_input, client, MODEL_NAME, episodic_layer=episodic, n_attempts=3, history=session_history)
+                # Execute Voting with History Context AND Cache AND Graph Context
+                answer = reasoner.solve_with_voting(user_input, client, MODEL_NAME, episodic_layer=episodic, n_attempts=3, history=session_history, context=graph_context)
                 print(f"\n{C.OKGREEN}✔ Conclusión Alcanzada.{C.ENDC}")
                 
                 # Print result immediately as it is already fully formed
@@ -194,11 +199,8 @@ def main():
             else:
                 # --- FAST PATH (System 1) ---
                 
-                # GraphEngram provides context, not just simple hits
-                graph_context = engram.get_context(user_input)
-                
-                if graph_context:
-                    print(f"{C.BOLD}[Graph Memory] Contexto encontrado:\n{graph_context}{C.ENDC}")
+                # Context is already retrieved above.
+                pass
                 
                 # --- PHASE 2: Context Retrieval (Agent 2: Librarian) ---
                 context_memories = librarian.retrieve_context(user_input, episodic)
