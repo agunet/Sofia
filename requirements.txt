@@ -11,3 +11,5 @@ duckduckgo_search
 langgraph
 langchain
 langchain_openai
+chromadb
+sentence-transformers
