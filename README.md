@@ -18,8 +18,9 @@ Sofía comes with a live Mission Control.
     *   **Force Synthesis:** Button to compress dispersed facts into Wisdom.
 
 ### 2. Deep Reasoning (System 2) 🧠
-*   **Meta-Cognitive Voting:** 4 Experts (Logician, Lateral, Skeptic, Philosopher) debate every complex answer.
-*   **Transparency:** You see the thinking process live (`↳ [Expert: Lateral] Hypothesis generated...`).
+*   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Dynamically Spawned Experts** (JIT) tailored to the specific problem.
+*   **Transient Swarm:** Agents are created on-demand, solve the task, and vanish. No permanent registry overhead.
+*   **Transparency:** You see the thinking process live (`↳ [Swarm] Invitando a la mesa...`).
 *   **Reasoning Cache:** If she solves a hard problem, she remembers the *logic*. Next time, the answer is instant (`⚡ [Cache]`).
 *   **Mental Lab:** Can simulate "What If" scenarios (`/simulate`) without confusing them with reality.
 
@@ -100,6 +101,8 @@ While chatting in `main.py` or using the Dashboard inputs:
 ## 📜 Complete Feature List (V2.0)
 
 ### Cognitive Core
+- [x] **Hybrid Swarm Reasoning:** Dynamic injection of specialized JIT agents into the expert panel.
+- [x] **Transient Architecture:** Stateless agent generation for maximum flexibility.
 - [x] **Auto-Judge:** Scoring system (0-10) to validate outputs before showing them.
 - [x] **Fact Checker:** Verification system against the internal Graph.
 - [x] **User Profiling:** Detection of user mood and preferred style.

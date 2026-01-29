@@ -1,15 +1,13 @@
-import hashlib
-import chromadb
-from chromadb.utils import embedding_functions
+import sqlite3
+import json
 import datetime
 import os
-import json
+import hashlib
+import warnings
 import heapq
 from collections import OrderedDict
 
 import sqlite3
-
-# --- Graph Engram Layer (SQLite Knowledge Graph - Simple-Graph Style) ---
 class GraphEngram:
     def __init__(self, persistence_path="knowledge_graph.db"):
         self.path = persistence_path
@@ -395,6 +393,15 @@ class GraphEngram:
 # --- Episodic Layer (Vector DB) ---
 class EpisodicLayer:
     def __init__(self, persistence_path="./memory_db"):
+        try:
+            import chromadb
+            from chromadb.utils import embedding_functions
+        except ImportError:
+            print("⚠️ [EpisodicLayer] ChromaDB not installed. Semantic memory disabled.")
+            self.client = None
+            self.collection = None
+            return
+
         self.client = chromadb.PersistentClient(path=persistence_path)
         
         # Use a default embedding function (e.g., all-MiniLM-L6-v2) suitable for local CPU usage
@@ -407,6 +414,8 @@ class EpisodicLayer:
 
     def add_episode(self, user_input, agent_response, context="general"):
         """Stores an interaction 'episode'."""
+        if self.collection is None: return
+        
         timestamp = datetime.datetime.now().isoformat()
         
         # We store the combined interaction as the document
@@ -420,6 +429,8 @@ class EpisodicLayer:
 
     def add_fact_triplet(self, subject, relation, target):
         """Stores a specific fact triplet for semantic retrieval."""
+        if self.collection is None: return
+
         timestamp = datetime.datetime.now().isoformat()
         fact_text = f"{subject} {relation} {target}"
         
@@ -440,6 +451,9 @@ class EpisodicLayer:
                        < 1.0: Semantically related.
                        > 1.4: Likely unrelated noise.
         """
+        if self.collection is None:
+            return []
+
         results = self.collection.query(
             query_texts=[query],
             n_results=n_results
@@ -508,6 +522,9 @@ class EpisodicLayer:
         
         # 2a. Identify Protected IDs (The "White List")
         protected_ids = set()
+        
+        if self.collection is None: return 0
+
         for concept in core_concepts:
             results = self.collection.query(
                 query_texts=[concept],
@@ -540,6 +557,7 @@ class EpisodicLayer:
         Deletes specific text memories after they have been synthesized into the Graph.
         """
         if not texts: return 0
+        if self.collection is None: return 0
         
         # We need to find the IDs for these texts.
         # Strategy: Query by text to find IDs.
@@ -562,6 +580,8 @@ class EpisodicLayer:
     # --- REASONING CACHE METHODS ---
     def cache_reasoning(self, problem, solution):
         """Caches a System 2 Reasoning result."""
+        if self.collection is None: return
+
         timestamp = datetime.datetime.now().isoformat()
         
         self.collection.add(
@@ -577,6 +597,8 @@ class EpisodicLayer:
         Note: ChromaDB default distance is L2 (Squared Euclidean). 0.0 = Identical.
         A threshold of ~0.3 usually implies very high semantic similarity.
         """
+        if self.collection is None: return None
+
         results = self.collection.query(
             query_texts=[problem],
             n_results=1,

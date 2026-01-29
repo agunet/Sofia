@@ -8,3 +8,6 @@ requests
 playwright
 trafilatura
 duckduckgo_search
+langgraph
+langchain
+langchain_openai

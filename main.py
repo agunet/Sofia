@@ -50,7 +50,7 @@ def main():
     monitor = AgentCheck()
     librarian = AgentLibrarian()
     empath = AgentEmpathy()
-    motivator = AgentMotivation(verbose=True) # Verbose ON by default
+    motivator = AgentMotivation(verbose=False) # Verbose OFF by default
     searcher = AgentSearch()
     evolution = AgentEvolution()
     

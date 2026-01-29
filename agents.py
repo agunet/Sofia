@@ -117,7 +117,7 @@ class AgentReasoning:
     Agente 1.5: Motor de Razonamiento 'Sistema 2' (El Pensador)
     Ejecuta votación Best-of-N para problemas complejos.
     """
-    def solve_with_voting(self, problem, client, model_name, episodic_layer=None, n_attempts=3, history=None, context=None):
+    def solve_with_voting(self, problem, client, model_name, episodic_layer=None, n_attempts=5, history=None, context=None):
         # 0. Check Cache First
         if episodic_layer:
             cached_solution = episodic_layer.lookup_cache(problem)
@@ -125,7 +125,7 @@ class AgentReasoning:
                  print(f"\n⚡ [Cache] Solución recuperada instantáneamente.")
                  return cached_solution
 
-        print(f"\n🧠 [Sistema 2] Activando pensamiento profundo (x{n_attempts})...")
+        print(f"\n🧠 [Sistema 2 + Swarm] Activando pensamiento profundo (x{n_attempts})...")
         
         candidates = []
         
@@ -136,6 +136,20 @@ class AgentReasoning:
             "Eres un crítico escéptico. Cuestiona las premisas de la pregunta. ¿Es una pregunta con truco? ¿Hay información oculta?",
             "Eres un Filósofo de la Mente. Analiza la consciencia, los 'qualia', la ética y la naturaleza del 'Yo'. ¿Qué significa ser?"
         ]
+
+        # [NEW] Dynamic Expert Injection (Hybrid Swarm)
+        try:
+            from agent_factory import AgentFactory
+            factory = AgentFactory()
+            print(f"   🏭 [Swarm] Buscando especialista para: '{problem[:30]}...'")
+            dynamic_agent = factory.spawn_agent(problem)
+            if dynamic_agent:
+                print(f"   ✨ [Swarm] Invitando a la mesa: {dynamic_agent.get('name', 'Especialista')}")
+                expert_personas.append(dynamic_agent['system_prompt'])
+            else:
+                 print("   ⚠️ [Swarm] No se pudo generar especialista. Usando equipo base.")
+        except Exception as e:
+            print(f"   ⚠️ [Swarm] Error en fábrica de agentes: {e}")
         
         # Pre-process history into OpenAI format
         history_messages = []
@@ -194,6 +208,10 @@ class AgentReasoning:
                     candidates.append(response.choices[0].message.content.strip())
                     # Meta-Reasoning Trace
                     expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo"]
+                    # Add generic title for dynamic experts if list is longer
+                    while len(expert_titles) < len(expert_personas):
+                        expert_titles.append("Especialista JIT")
+                        
                     current_expert = expert_titles[i % len(expert_titles)]
                     print(f"\n   ↳ [Experto: {current_expert}] Hipótesis generada.", end="", flush=True)
                 else:
@@ -558,6 +576,7 @@ class AgentMotivation:
     """
     def __init__(self, verbose=False):
         self.processed_logs = set() # Track what we've already analyzed
+        self.verbose = verbose
         self.verbose = verbose
         # Memory Systems
         self.engram = GraphEngram()

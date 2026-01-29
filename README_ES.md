@@ -16,8 +16,9 @@ Sofía incluye un Centro de Mando en tiempo real.
     *   **Síntesis Forzada:** Botón para comprimir hechos dispersos en sabiduría.
 
 ### 2. Razonamiento Profundo (Sistema 2) 🧠
-*   **Votación Meta-Cognitiva:** 4 Expertos (Lógico, Lateral, Escéptico, Filósofo) debaten las respuestas complejas.
-*   **Transparencia:** Puedes ver el pensamiento en vivo (`↳ [Experto: Lateral] Hipótesis generada...`).
+*   **Razonamiento de Enjambre Híbrido:** Itegra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Expertos Generados Dinámicamente (JIT)** según la necesidad del problema.
+*   **Enjambre Transitorio:** Los agentes nacen, resuelven y desaparecen. Sin registros persistentes.
+*   **Transparencia:** Puedes ver el pensamiento en vivo (`↳ [Swarm] Invitando a la mesa...`).
 *   **Caché de Razonamiento:** Si resuelve un problema difícil, recuerda la *lógica*. La próxima vez responde al instante (`⚡ [Cache]`).
 *   **Laboratorio Mental:** Simula escenarios hipotéticos (`/simulate`) sin confundirlos con la realidad.
 
@@ -98,6 +99,8 @@ Mientras chateas en `main.py` o usas el Dashboard:
 ## 📜 Lista Completa de Features (V2.0)
 
 ### Núcleo Cognitivo
+- [x] **Enjambre Híbrido:** Inyección dinámica de agentes especialistas en el panel de expertos.
+- [x] **Arquitectura Transitoria:** Generación stateless de agentes para máxima flexibilidad.
 - [x] **Auto-Juez:** Sistema de puntuación (0-10) para validar respuestas.
 - [x] **Verificador de Hechos:** Cotejo contra el Grafo interno.
 - [x] **Perfilado de Usuario:** Detección de humor y estilo preferido.
