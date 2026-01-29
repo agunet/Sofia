@@ -6,6 +6,30 @@ import trafilatura
 _PLAYWRIGHT = None
 _BROWSER = None
 
+def validate_truth(text):
+    """
+    Truth-Guard: Compares snippet with Wild Sardines Wisdom.
+    Purges commercial noise/spam.
+    """
+    import json
+    try:
+        with open("wisdom.json", "r") as f:
+            wisdom = json.load(f)
+        core = wisdom.get("core_principals", [])
+    except:
+        return True # Fallback
+    
+    # Heuristic: If it contains heavy commercial keywords without scientific ones, reject.
+    commercial_noise = ['precios', 'oferta', 'comprar', 'descuento', 'free shipping', 'sales']
+    spam_count = sum(1 for word in commercial_noise if word in text.lower())
+    
+    # If it's mostly spam, reject unless it also contains core wisdom
+    if spam_count > 3:
+        if not any(p.lower().split(':')[0] in text.lower() for p in core):
+            return False
+            
+    return True
+
 def get_browser():
     """
     Singleton Pattern: Returns the existing browser capability or launches a new one.
@@ -25,16 +49,17 @@ def get_context(browser):
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
 
-def fetch_and_clean(url, max_chars=12000):
+def fetch_and_clean(url, max_chars=12000, high_density_only=True):
     """
     Fetches web content and returns a structured Reality Object.
+    Guerrilla Mode 2.0: Strategic paragraph filtering.
     """
     try:
         browser = get_browser()
         page = browser.new_page()
         
         try:
-            page.goto(url, timeout=20000, wait_until="domcontentloaded")
+            page.goto(url, timeout=25000, wait_until="domcontentloaded")
             content_html = page.content()
             final_url = page.url
         finally:
@@ -45,6 +70,31 @@ def fetch_and_clean(url, max_chars=12000):
             
             if not clean_text:
                 return {"status": "error", "error": "Extraction failure (Trafilatura)", "url": url}
+
+            # Guerrilla Mode 2.0: High Density Semantic Filtering
+            if high_density_only:
+                import json
+                try:
+                    with open("wisdom.json", "r") as f:
+                        wisdom = json.load(f)
+                    seeds = wisdom.get("high_density_topics", [])
+                except:
+                    seeds = ["Scientific Realism", "Data Efficiency"]
+
+                paragraphs = clean_text.split('\n\n')
+                filtered_paras = [p for p in paragraphs if any(s.lower() in p.lower() for s in seeds)]
+                
+                if filtered_paras:
+                    clean_text = "\n\n".join(filtered_paras)
+                    print(f"🕵️ [Web Reader] Guerrilla Filter: Kept {len(filtered_paras)} high-density paragraphs.")
+                else:
+                    # If nothing matches, keep a small snippet to avoid total failure
+                    clean_text = clean_text[:2000] + "\n\n... [Low Density Filtered] ..."
+
+            # TRUTH-GUARD PRE-VALIDATION
+            if not validate_truth(clean_text):
+                print(f"🛑 [Truth-Guard] Snippet rejected (Commercial noise or epistemic mismatch).")
+                return {"status": "error", "error": "Truth-Guard rejection", "url": url}
 
             if len(clean_text) > max_chars:
                  clean_text = clean_text[:max_chars] + f"\n\n... [Truncated] ..."

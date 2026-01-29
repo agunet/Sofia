@@ -642,6 +642,31 @@ class MemoryManager:
         self.kv_cache = OrderedDict()
         self.ghost_cache = {} # [New] Stores "Ghost Anchors" (Summaries) of evicted nodes
         self.importance_heap = [] 
+        self.current_focus = None # Managed via commands
+
+    def is_relevant(self, key, value, importance, category="General"):
+        """
+        Relevance Criterion Level 2: Resonance & Utility.
+        """
+        score = importance
+        
+        # 1. Focus Priority (User Sovereignty)
+        if self.current_focus and (self.current_focus.lower() in key.lower() or self.current_focus.lower() in str(value).lower()):
+            score += 0.3
+        
+        # 2. Resonance with the 'Sardines Contract' (Ethics)
+        ethics_keywords = ['ética', 'soberanía', 'sabiduría', 'libertad', 'autonomía']
+        if any(term in key.lower() or term in str(value).lower() for term in ethics_keywords):
+            score += 0.2
+            
+        # 3. Technical Utility (Project Muscle)
+        tech_keywords = ['postgresql', 'python', 'firebase', 'vllm', 'chromadb', 'sqlite']
+        if any(term in key.lower() or term in category.lower() for term in tech_keywords):
+            score += 0.15
+            
+        # 4. Temporal Decay (Humean)
+        # (Simplified: older items lose a small fraction of score)
+        return min(1.0, score)
 
     def _summarize_node(self, key, content):
         """Generates a Ghost Anchor (Summary) using LLM if available, else truncates."""
@@ -649,12 +674,13 @@ class MemoryManager:
             return content[:100] + "..." # Fallback
             
         try:
-            prompt = f"Resume el siguiente concepto/hecho en UNA sola frase corta y densa para mantenerla en memoria RAM:\n\n'{key}: {content}'"
+            # Level 2 requirement: Eternal Ghost (~20 words)
+            prompt = f"Sintetiza este conocimiento en exactamente 20 palabras. Este será su fantasma eterno en la VRAM:\n\n'{key}: {content}'"
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
-                max_tokens=50
+                max_tokens=60
             )
             return response.choices[0].message.content.strip()
         except:
@@ -718,47 +744,48 @@ class MemoryManager:
             "signal": f"KV_CACHE_WRITE_CONFIRMED_{datetime.datetime.now().timestamp()}"
         }
 
-    def compact_kvcache(self):
+    def decidir_exilio_final(self):
         """
-        Logic: 'Ricardo's Scarcity' + 'Ghost Anchors'.
-        When resources (Context/VRAM) are full, valid but less important concepts are summarized (Ghosting)
-        instead of being fully forgotten.
+        Metabolic Sovereignty: Decide which nodes to 'exile' based on relevance.
+        This allows Sofia to maintain her 'ideal weight' of data.
         """
-        ghosted_count = 0
         if self.verbose:
-            print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Initiating Ghost Protocol...")
-        
+             print(f"⚖️ [Metabolismo] VRAM al límite (> {self.max_size} nodos). Iniciando exilio epistémico...")
+             
         while len(self.kv_cache) > self.max_size:
-            # Pop the smallest item (Lowest importance)
-            lowest_importance, key_to_evict = heapq.heappop(self.importance_heap)
+            # A: Epistemic Archaeologist selects nodes with lowest relevance
+            # We recalculate relevance on the fly to account for current focus
+            scored_keys = []
+            for k, v in self.kv_cache.items():
+                rel = self.is_relevant(k, v['value'], v['importance'], v.get('category', 'General'))
+                scored_keys.append((rel, k))
             
-            if key_to_evict in self.kv_cache:
-                current_data = self.kv_cache[key_to_evict]
-                if current_data["importance"] > lowest_importance:
-                    continue # Stale heap entry
-                
-                # 1. Archive full content to DB (Long Term Storage)
-                self._archive_to_db(current_data, "Condensed/Ghosted", category=current_data.get("category", "General"))
-                
-                # 2. Generate Ghost Anchor (Summary)
-                original_content = current_data["value"]
-                ghost_summary = self._summarize_node(key_to_evict, original_content)
-                
-                # 3. Store Ghost
-                self.ghost_cache[key_to_evict] = f"👻 [GHOST] {ghost_summary}"
-                if len(self.ghost_cache) > self.max_size * 2: # Limit ghosts too
-                    # Simple FIFO for ghosts if too many
-                    oldest_ghost = next(iter(self.ghost_cache))
-                    del self.ghost_cache[oldest_ghost]
+            # Sort by relevance (ascending)
+            scored_keys.sort()
+            lowest_rel, key_to_evict = scored_keys[0]
+            
+            # B & C: Generate Ghost Anchor and Archive
+            current_data = self.kv_cache[key_to_evict]
+            self._archive_to_db(current_data, "Condensed/Exiled", category=current_data.get("category", "General"))
+            
+            ghost_summary = self._summarize_node(key_to_evict, current_data["value"])
+            self.ghost_cache[key_to_evict] = f"👻 [GHOST] {ghost_summary}"
+            
+            # Maintenance
+            if len(self.ghost_cache) > self.max_size * 3:
+                oldest_ghost = next(iter(self.ghost_cache))
+                del self.ghost_cache[oldest_ghost]
 
-                # 4. Evict from Active Cache
-                del self.kv_cache[key_to_evict]
-                ghosted_count += 1 # Increment counter
-                
-                if self.verbose:
-                    print(f"   👻 [MemoryManager] Ghosted: '{key_to_evict}' -> '{ghost_summary}'")
+            del self.kv_cache[key_to_evict]
+            
+            if self.verbose:
+                print(f"   👋 [Exilio] Nodo '{key_to_evict}' (Rel: {lowest_rel:.2f}) convertido en Fantasma Eterno.")
         
-        return ghosted_count
+        return True
+
+    def compact_kvcache(self):
+        """Legacy wrapper for decidir_exilio_final."""
+        return self.decidir_exilio_final()
 
     def get_context_string(self):
         """Returns a string representation of Active Memory + Ghost Anchors."""
