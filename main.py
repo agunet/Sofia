@@ -3,6 +3,7 @@ import time
 from openai import OpenAI
 from memory_systems import GraphEngram, EpisodicLayer
 from agents import AgentCheck, AgentLibrarian, AgentEmpathy, AgentMotivation, AgentEvolution, AgentReasoning, AgentSearch
+import json
 
 # Configuration
 VLLM_URL = "http://localhost:8085/v1"
@@ -132,6 +133,89 @@ def main():
                 success = motivator.synthesize_memory(engram, client, MODEL_NAME, episodic_layer=episodic)
                 if not success:
                     print("   (No se encontraron nodos densos para sintetizar)")
+                continue
+
+            # COMMAND: Verify Action (Audit)
+            if user_input.lower() == "/verify_action":
+                print(f"\n{C.OKBLUE}🔍 [Audit] Verificando últimas señales de realidad...{C.ENDC}")
+                print(f"{C.OKCYAN}Estado de Memoria Activa:{C.ENDC}")
+                print(motivator.memory_manager.get_context_string())
+                continue
+
+            # COMMAND: Internal Drives (Genesis)
+            if user_input.lower() == "/drives":
+                try:
+                    with open("drives.json", "r") as f:
+                        drives = json.load(f)
+                    print(f"\n{C.OKCYAN}🧠 [Límbico] Estado actual de impulsos:{C.ENDC}")
+                    for k, v in drives.items():
+                        val = float(v)
+                        bar = "█" * int(val * 20)
+                        print(f"  {k.capitalize():<25}: {val:.2f} [{bar:<20}]")
+                except:
+                    print("⚠️ No se pudo leer el sistema límbico.")
+                continue
+
+            # COMMAND: Set Drive (Genesis)
+            if user_input.lower().startswith("/set_drive "):
+                try:
+                    parts = user_input.split()
+                    drive_name = parts[1]
+                    val = float(parts[2])
+                    with open("drives.json", "r") as f:
+                        drives = json.load(f)
+                    if drive_name in drives:
+                        drives[drive_name] = max(0.0, min(1.0, val))
+                        with open("drives.json", "w") as f:
+                            json.dump(drives, f, indent=2)
+                        print(f"✅ Drive '{drive_name}' actualizado a {val:.2f}")
+                    else:
+                        print(f"❌ Drive '{drive_name}' no encontrado.")
+                except:
+                    print("⚠️ Uso: /set_drive <nombre> <valor 0.0-1.0>")
+                continue
+
+            # COMMAND: Explain Motivation
+            if user_input.lower().startswith("/explain_motivation "):
+                concept = user_input[20:].strip()
+                prompt = f"Explica por qué Sofía (una IA curiosa) podría estar interesada en investigar el concepto '{concept}' basándose en sus impulsos de curiosidad, coherencia y profundidad científica. Responde en una sola frase potente."
+                try:
+                    resp = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    print(f"\n{C.OKBLUE}🧠 [Motivación]: {resp.choices[0].message.content.strip()}{C.ENDC}")
+                except:
+                    print("⚠️ No se pudo obtener la explicación.")
+                continue
+
+            # COMMAND: Current Focus & Objectives
+            if user_input.lower() == "/current_focus":
+                try:
+                    with open("objectives.json", "r") as f:
+                        obj = json.load(f)
+                    print(f"\n{C.OKCYAN}🎯 [Objetivos Actuales]:{C.ENDC}")
+                    print(f"  Enfoque Primario: {obj.get('primary_focus')}")
+                    print(f"  Límites: {', '.join(obj.get('exploration_boundaries', []))}")
+                    print(f"  Meta Diaria: {obj.get('daily_goal')} relaciones")
+                except:
+                    print("⚠️ No se pudo leer objectives.json")
+                continue
+
+            # COMMAND: Debug Filter
+            if user_input.lower().startswith("/debug_filter "):
+                topic = user_input[14:].strip()
+                try:
+                    with open("objectives.json", "r") as f:
+                        obj = json.load(f)
+                    boundaries = obj.get("exploration_boundaries", [])
+                    matches = [b for b in boundaries if b.lower() in topic.lower()]
+                    if matches:
+                        print(f"✅ El tema '{topic}' PASARÍA el filtro (Coincidencias: {', '.join(matches)})")
+                    else:
+                        print(f"❌ El tema '{topic}' sería RECHAZADO (Sin coincidencias en boundaries)")
+                except:
+                    print("⚠️ Error al ejecutar debug_filter.")
                 continue
 
             # COMMAND: Mental Lab

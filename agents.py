@@ -216,12 +216,91 @@ class AgentReasoning:
              print(f"   ⚠️ [Reasoning] Error en módulo de investigación: {e}")
 
         # 1. Generate diverse solutions with distinct Personas
+        base_constraint = "CONTRATO: Eres un SIMULADOR COGNITIVO. No simules éxito real. Usa [SIMULACIÓN NARRATIVA] para describir tus procesos. Prioriza la introspección sobre la mención de datos fácticos externos no verificados."
+        
         expert_personas = [
-            "Eres un matemático logico y estricto. Analiza el problema paso a paso. VERIFICA CADA CÁLCULO.",
-            "Eres un experto en pensamiento lateral. Busca soluciones 'físicas' (cambios de estado) o 'semánticas'.",
-            "Eres un crítico escéptico. Cuestiona las premisas de la pregunta. ¿Es una pregunta con truco? ¿Hay información oculta?",
-            "Eres un Filósofo de la Mente. Analiza la consciencia, los 'qualia', la ética y la naturaleza del 'Yo'. ¿Qué significa ser?"
+            f"{base_constraint} Eres un matemático logico y estricto. Analiza el problema paso a paso. VERIFICA CADA CÁLCULO.",
+            f"{base_constraint} Eres un experto en pensamiento lateral. Busca soluciones 'físicas' (cambios de estado) o 'semánticas'.",
+            f"{base_constraint} Eres un crítico escéptico. Cuestiona las premisas de la pregunta. ¿Es una pregunta con truco?",
+            f"{base_constraint} Eres un Filósofo de la Mente. Analiza la consciencia, los 'qualia' y la naturaleza del 'Yo'.",
+            "AUDITOR DE REALIDAD: Tu ÚNICA función es validar hechos. Se te darán objetos JSON con resultados REALES de ejecución. Si un experto afirma algo que el JSON contradice, denúncialo como ALUCINACIÓN."
         ]
+
+        # [NEW] Execution signals for the Auditor
+        reality_signals = []
+
+        # [NEW] Autonomous Deep Research (Proactive Search)
+        # Ask the model if it needs to search.
+        try:
+            research_prompt = f"""
+            Analiza el siguiente problema. ¿Necesitas buscar información externa en la web (Google/DuckDuckGo) para responderlo con precisión, actualidad o detalles técnicos que no posees?
+            
+            PROBLEMA: {problem}
+            
+            Si es un tema de conocimiento general, lógica o filosofía, responde exactamente: NO
+            Si necesitas buscar algo específico (documentación, noticias, hechos recientes), responde exactamente: SEARCH: <tu consulta de búsqueda optimizada>
+            """
+            
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": research_prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            decision = resp.choices[0].message.content.strip()
+            
+            if decision.startswith("SEARCH:"):
+                import web_reader
+                query = decision.replace("SEARCH:", "").strip()
+                print(f"   🤔 [Reasoning] Decidiendo investigar: '{query}'")
+                
+                # 1. Search
+                results = web_reader.search_via_browser(query, verbose=True)
+                
+                if results:
+                    # 2. Select best links
+                    candidates_str = "\n".join([f"[{i}] {r['title']} - {r['snippet'][:100]}..." for i, r in enumerate(results)])
+                    selection_prompt = f"""
+                    He encontrado estos resultados para '{query}':
+                    
+                    {candidates_str}
+                    
+                    Identifica cuáles son INDISPENSABLES para leer en profundidad.
+                    Responde SOLO con los índices separados por comas (ej: 0, 2) o NONE.
+                    Selecciona máximo 2 para no saturar.
+                    """
+                    
+                    sel_resp = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": selection_prompt}],
+                        temperature=0.1,
+                        max_tokens=20
+                    )
+                    selection = sel_resp.choices[0].message.content.strip()
+                    
+                    indices = []
+                    import re
+                    if "NONE" not in selection:
+                         indices = [int(x) for x in re.findall(r'\d+', selection)]
+                    
+                    # 3. Deep Read
+                    for idx in indices[:2]: # Max 2
+                        if idx < len(results):
+                            target_url = results[idx]['url']
+                            print(f"   📖 [Reasoning] Deep Reading: {target_url}")
+                            try:
+                                result_obj = web_reader.fetch_and_clean(target_url)
+                                reality_signals.append(result_obj)
+                                if result_obj.get("status") == "success":
+                                    content = result_obj.get("content", "")
+                                    web_context += f"\n\n[INVESTIGACIÓN AUTÓNOMA ({target_url})]:\n{content}\n"
+                                else:
+                                    print(f"   ⚠️ Fallo en lectura real: {result_obj.get('error')}")
+                            except Exception as e:
+                                print(f"   ⚠️ Error leyendo {target_url}: {e}")
+
+        except Exception as e:
+             print(f"   ⚠️ [Reasoning] Error en módulo de investigación: {e}")
 
         # [NEW] Dynamic Expert Injection (Hybrid Swarm)
         try:
@@ -256,6 +335,11 @@ class AgentReasoning:
         # [NEW] Inject Web Context
         if web_context:
              context_msg += f"\n\n[CONTEXTO EXTERNO LEÍDO (WEB)]:\n{web_context}\n"
+
+        # [NEW] Inject Reality Signals (Hard Signals from the System)
+        if reality_signals:
+            signals_json = json.dumps(reality_signals, indent=2, ensure_ascii=False)
+            context_msg += f"\n\n[OBJETOS DE REALIDAD (SEÑALES DEL SISTEMA)]:\n{signals_json}\n(ESTOS SON DATOS REALES DE EJECUCIÓN. EL AUDITOR DEBE USARLOS PARA VERIFICAR LAS AFIRMACIONES DE OTROS AGENTES)."
 
         # Ensure we run at least n_attempts, cycling through personas if needed
         for i in range(n_attempts):
@@ -298,7 +382,7 @@ class AgentReasoning:
                 if response.choices:
                     candidates.append(response.choices[0].message.content.strip())
                     # Meta-Reasoning Trace
-                    expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo"]
+                    expert_titles = ["Lógico", "Lateral", "Crítico", "Filósofo", "Auditor"]
                     # Add generic title for dynamic experts if list is longer
                     while len(expert_titles) < len(expert_personas):
                         expert_titles.append("Especialista JIT")
@@ -1491,9 +1575,7 @@ class AgentEvolution:
             return self.base_instruction
 
     def evolve_step(self, logs, client, model_name, recent_discovery=None):
-        """
-        Analiza logs y descubrimientos recientes para ajustar su 'personalidad'.
-        """
+        # ... (Implementation remains the same as viewed before)
         if not logs and not recent_discovery: return False
         
         current = self.get_current_instruction()
@@ -1516,7 +1598,6 @@ class AgentEvolution:
         {discovery_text}
         
         Reflexiona: ¿El nuevo hecho aprendido o la última interacción requieren que ajuste mi instrucción?
-        (Ejemplo: Si aprendí que el usuario es experto, debo ser más técnica. Si fallé, debo corregirme).
         
         Si NO hay cambios necesarios, responde: NO_CHANGE
         Si hay mejora, responde ÚNICAMENTE con la nueva instrucción completa optimizada.
@@ -1541,4 +1622,25 @@ class AgentEvolution:
         except:
             pass
         return False
+
+    def prune_memory(self, engram_layer, client, model_name, episodic_layer=None):
+        """Unified Garbage Collection & Self-Optimization."""
+        from self_optimizer import SelfOptimizer
+        optimizer = SelfOptimizer(engram_layer)
+        
+        # 1. Structural Pruning (Low Confidence)
+        pruned_edges = optimizer.prune_weak_connections()
+        
+        # 2. Vector Pruning
+        if episodic_layer:
+             episodic_layer.prune_synapses(["Sofía", "Agustín"])
+             
+        # 3. Abstractions (Every few cycles)
+        import random
+        if random.random() < 0.1:
+            abstractions = optimizer.create_abstractions(client, model_name)
+            if abstractions:
+                optimizer.log_growth(description=f"Creadas abstracciones: {', '.join(abstractions)}")
+        
+        return pruned_edges > 0
 

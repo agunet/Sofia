@@ -1,0 +1,14 @@
+{
+    "primary_focus": "Filosofía de la ciencia y teoría del conocimiento",
+    "exploration_boundaries": [],
+    "allow_historical_context": true,
+    "allow_interdisciplinary_connections": true,
+    "min_topic_specificity": 0.1,
+    "avoid_topics": [
+        "política partidista",
+        "noticias sensacionalistas",
+        "temas prohibidos"
+    ],
+    "daily_goal": 30,
+    "achievements_threshold": 0.85
+}

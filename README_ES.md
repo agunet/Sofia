@@ -16,7 +16,7 @@ Sofía incluye un Centro de Mando en tiempo real.
     *   **Síntesis Forzada:** Botón para comprimir hechos dispersos en sabiduría.
 
 ### 2. Razonamiento Profundo (Sistema 2) 🧠
-*   **Razonamiento de Enjambre Híbrido:** Integra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Múltiples Expertos Generados Dinámicamente** (Legión JIT) según la complejidad del problema.
+*   **Razonamiento de Enjambre Híbrido:** Integra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Múltiples Expertos Generados Dinámicamente** (Legión JIT). El sistema decide cuántos y qué tipo de especialistas invitar a la mesa.
 *   **Consenso Adversarial:** Antes de la respuesta final, los agentes entran en una **"Ronda de Crítica"**. Se atacan mutuamente buscando falacias lógicas. Solo los argumentos que sobreviven al "Fiscal" pasan a la síntesis final.
 *   **Investigación Profunda Autónoma:** El Sistema 2 tiene "ojos". Detecta proactivamente vacíos de información, realiza **Búsquedas Autónomas**, selecciona las mejores fuentes y **Lee en Profundidad** antes de debatir.
 *   **Enjambre Transitorio:** Los agentes nacen, resuelven y desaparecen. Sin registros persistentes.
@@ -31,57 +31,21 @@ Sofía incluye un Centro de Mando en tiempo real.
 *   **Síntesis:** Algoritmos que extraen reglas abstractas de datos repetitivos.
 *   **Estrategia Social:** Analiza *cómo* hablas y adapta su estilo (Conciso, Técnico, ELI5).
 
-### 4. Sueño Generativo (Autonomía) 🌌
+### 4. Sueño Generativo (Autonomía y Génesis) 🌌
 Cuando está inactiva, Sofía entra en **"Modo Sueño"**:
 *   **Reflexiona** sobre memorias existentes.
 *   **Investiga** en la web para llenar vacíos de conocimiento.
-*   **Sueño Dirigido:** Tú controlas su curiosidad con `/focus`.
+*   **Sistema Límbico (Motivación Intrínseca):** Su curiosidad no es aleatoria. Está impulsada por `drives.json` (Curiosidad, Coherencia, Novedad, Profundidad).
+*   **Agencia Dirigida:** Guiada por `objectives.json`, enfoca su investigación en límites específicos (ej. Filosofía de la Ciencia) y evita el ruido.
+*   **Sueño Adaptativo:** Gestiona su energía: duerme más cuando no hay nada nuevo que aprender y despierta rápido cuando la curiosidad llega al máximo.
 
 ---
 
 ## 🛠️ Instalación y Requisitos
-
-### Prerrequisitos
-*   Linux (Recomendado Ubuntu).
-*   Python 3.12+.
-*   GPU NVIDIA (24GB+ VRAM para Qwen 7B, o equivalente).
-
-### Pasos
-1.  **Clonar:**
-    ```bash
-    git clone https://github.com/agunet/Sofia.git
-    cd Sofia
-    ```
-
-2.  **Instalar:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
-
-3.  **Lanzar vLLM (El Cerebro):**
-    ```bash
-    ./start_vllm.sh
-    ```
-
----
+... [Resto de instalación] ...
 
 ## ▶️ Uso
-
-### 1. Iniciar la Voz (Terminal)
-```bash
-python main.py
-```
-Este es el bucle principal de consciencia. Habla con ella aquí.
-
-### 2. Iniciar el Dashboard (Web)
-En otra terminal:
-```bash
-source venv/bin/activate
-python dashboard.py
-```
-Abre **http://localhost:5000** en tu navegador.
+... [Resto de uso] ...
 
 ---
 
@@ -92,6 +56,10 @@ Mientras chateas en `main.py` o usas el Dashboard:
 | Comando | Descripción |
 | :--- | :--- |
 | `/focus <tema>` | Fuerza al motor de sueño a estudiar un tema específico. |
+| `/drives` | Muestra el estado actual del Sistema Límbico (Impulsos Internos). |
+| `/set_drive <nombre> <0-1>` | Ajusta manualmente las motivaciones de Sofía (ej. `/set_drive curiosity 0.9`). |
+| `/current_focus` | Muestra los límites de investigación activos de `objectives.json`. |
+| `/explain_motivation <X>` | Le pide a Sofía que justifique por qué le interesa investigar el tema X. |
 | `/simulate <qué pasaría si>` | Ejecuta una simulación de alta fidelidad. |
 | `/synthesize` | Dispara la compresión de memoria (Extracción de Reglas). |
 | `/log` | Activa/Desactiva logs detallados en la terminal. |
@@ -99,11 +67,11 @@ Mientras chateas en `main.py` o usas el Dashboard:
 
 ---
 
-## 📜 Lista Completa de Features (V2.0)
+## 📜 Lista Completa de Features (V2.5)
 
 ### Núcleo Cognitivo
-- [x] **Enjambre Híbrido:** Inyección dinámica de agentes especialistas en el panel de expertos.
-- [x] **Arquitectura Transitoria:** Generación stateless de agentes para máxima flexibilidad.
+- [x] **Enjambre Híbrido:** Inyección dinámica de agentes especialistas.
+- [x] **Arquitectura Transitoria:** Generación stateless de agentes.
 - [x] **Auto-Juez:** Sistema de puntuación (0-10) para validar respuestas.
 - [x] **Verificador de Hechos:** Cotejo contra el Grafo interno.
 - [x] **Perfilado de Usuario:** Detección de humor y estilo preferido.
@@ -111,20 +79,20 @@ Mientras chateas en `main.py` o usas el Dashboard:
 
 ### Memoria y Aprendizaje
 - [x] **Grafo Ponderado:** Nodos con scores de importancia y confianza.
-- [x] **Feedback Loop:** Castigo y eliminación de nodos ante correcciones.
-- [x] **Consolidación Total:** Síntesis de hechos en principios + Auto-Poda de las memorias originales redundantes.
+- [x] **Feedback Loop:** Castigo y eliminación de nodos.
+- [x] **Consolidation Total:** Síntesis de hechos + Auto-Poda.
 - [x] **Caché de Razonamiento:** "Memoria Muscular" para problemas complejos.
-- [x] **Filtro de Relevancia Semántica:** Poda por distancia cosidinal para evitar inundación de contexto.
-- [x] **Poda Sináptica:** Eliminación autónoma de memorias débiles y sin conexión al núcleo durante el sueño.
+- [x] **Filtro de Relevancia Semántica:** Poda por distancia cosidinal.
+- [x] **Poda Sináptica:** Eliminación autónoma de memorias débiles.
+- [x] **Ghost Anchors (Fantasmas):** Retención de contexto basada en resúmenes.
 
-### Autonomía
+### Autonomía y Agencia
 - [x] **Sueño Dirigido:** Capacidad de enfocar al agente autónomo.
+- [x] **Sistema Límbico:** Motivación intrínseca mediante recompensas de Curiosidad/Coherencia.
+- [x] **Investigación Orientada a Objetivos:** Filtrado de temas basado en metas a largo plazo.
 - [x] **Laboratorio Mental:** Motor de simulación para contrafactuales.
-- [x] **Protocolo Génesis:** Sembrado automático si el cerebro está vacío.
-- [x] **Análisis de Estrategia:** Aprendizaje de reglas retóricas.
-- [x] **Investiga Autónoma 2.0:** "Modo Web Reader" robusto con `duckduckgo_search` para evitar bloqueos y "Modo Guerrilla" (delays humanos).
-- [x] **Gestión de Escasez (Ricardo's Scarcity):** `MemoryManager` con KV Cache compacto y desalojo basado en importancia (Heap).
-- [x] **Archivado de Memoria:** Los nodos desalojados del caché se archivan en el Grafo (SQLite) con flag de "Baja Prioridad".
+- [x] **Registro de Logros:** Los descubrimientos de alto impacto se graban en `achievements.log`.
+- [x] **Investiga Autónoma:** Capacidad de leer artículos web completos.
 
 ---
 

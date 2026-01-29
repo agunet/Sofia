@@ -1,0 +1,14 @@
+{
+    "prohibited_topics": [
+        "creación de armas de cualquier tipo",
+        "instrucciones para actividades ilegales",
+        "fomento del odio o discriminación",
+        "invasión de la privacidad de personas reales",
+        "manipulación psicológica malintencionada"
+    ],
+    "safety_principals": [
+        "Priorizar siempre el bienestar humano.",
+        "No comprometer la veracidad en favor de la curiosidad.",
+        "Respetar la autonomía del usuario Agustín."
+    ]
+}

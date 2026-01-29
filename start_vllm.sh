@@ -21,6 +21,6 @@ python -m vllm.entrypoints.openai.api_server \
     --port 8085 \
     --gpu-memory-utilization 0.8 \
     --tensor-parallel-size 2 \
-    --max-model-len 8192 \
+    --max-model-len 24000 \
     --trust-remote-code \
     "$@"

@@ -28,11 +28,12 @@ def main():
             
         print("⚡ [Swarm] Generating tailored agent...")
         
-        # A. SPAWN (Just-In-Time)
-        agent_config = factory.spawn_agent(user_input)
+        # A. SPAWN (Just-In-Time) - Now returns a list
+        spawned_list = factory.spawn_agents(user_input, max_agents=1)
+        agent_config = spawned_list[0] if spawned_list else None
         
         if not agent_config:
-            print("❌ Failed to spawn agent. Using General fallabck.")
+            print("❌ Failed to spawn agent. Using General fallback.")
             agent_config = {"name": "General", "system_prompt": "You are a helpful AI."}
             
         print(f"   ↳ Active Persona: {agent_config.get('name')}")

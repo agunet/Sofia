@@ -61,4 +61,4 @@ class AgentFactory:
 if __name__ == "__main__":
     # Test
     factory = AgentFactory()
-    print(factory.spawn_agent("I need a recipe for vegan lasagna"))
+    print(factory.spawn_agents("I need a recipe for vegan lasagna"))

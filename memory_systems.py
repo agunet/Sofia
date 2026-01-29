@@ -119,40 +119,59 @@ class GraphEngram:
         subject_id = self._hash(norm_subject)
         target = target.strip()
         
-        with sqlite3.connect(self.path) as conn:
-            cursor = conn.cursor()
-            # 1. Ensure node exists (Initialize with base importance 0.5)
-            # We use INSERT OR IGNORE, but if it exists, we might want to update the category if it was NULL?
-            cursor.execute("INSERT OR IGNORE INTO nodes (id, label, importance, access_count, last_accessed, category) VALUES (?, ?, 0.5, 0, ?, ?)", 
-                           (subject_id, norm_subject, datetime.datetime.now().isoformat(), category))
-            
-            # Update category if it was previously NULL or "General" and we have a better one
-            if category and category != "General":
-                 cursor.execute("UPDATE nodes SET category = ? WHERE id = ? AND (category IS NULL OR category = 'General')", (category, subject_id))
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("INSERT OR IGNORE INTO nodes (id, label, importance, access_count, last_accessed, category) VALUES (?, ?, 0.5, 0, ?, ?)", 
+                               (subject_id, norm_subject, datetime.datetime.now().isoformat(), category))
+                
+                if category and category != "General":
+                     cursor.execute("UPDATE nodes SET category = ? WHERE id = ? AND (category IS NULL OR category = 'General')", (category, subject_id))
 
-            # 2. Check for duplicate edge
-            cursor.execute("SELECT 1 FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
-                           (subject_id, relation, target))
-            if not cursor.fetchone():
-                cursor.execute("INSERT INTO edges (source_id, relation, target, confidence, source_type) VALUES (?, ?, ?, ?, ?)", 
-                               (subject_id, relation, target, confidence, source_type))
-            else:
-                # Reinforcement: If duplicated, boost confidence slightly?
-                cursor.execute("UPDATE edges SET confidence = MIN(1.0, confidence + 0.1) WHERE source_id = ? AND relation = ? AND target = ?",
+                cursor.execute("SELECT 1 FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
                                (subject_id, relation, target))
                 
-            conn.commit()
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO edges (source_id, relation, target, confidence, source_type) VALUES (?, ?, ?, ?, ?)", 
+                                   (subject_id, relation, target, confidence, source_type))
+                    action = "created"
+                else:
+                    cursor.execute("UPDATE edges SET confidence = MIN(1.0, confidence + 0.1) WHERE source_id = ? AND relation = ? AND target = ?",
+                                   (subject_id, relation, target))
+                    action = "reinforced"
+                    
+                conn.commit()
+                return {
+                    "status": "success",
+                    "action": action,
+                    "subject": norm_subject,
+                    "subject_id": subject_id,
+                    "relation": relation,
+                    "target": target,
+                    "signal": f"REAL_SQL_COMMIT_CONFIRMED_{datetime.datetime.now().timestamp()}"
+                }
+        except Exception as e:
+            return {"status": "error", "error": str(e), "signal": "SQL_FAILURE"}
 
     def delete_triplet(self, subject, relation, target):
         """Removes a specific triplet from the graph (Self-Correction)."""
         subject_id = self._hash(subject.strip())
         target = target.strip()
         
-        with sqlite3.connect(self.path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
-                           (subject_id, relation, target))
-            conn.commit()
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM edges WHERE source_id = ? AND relation = ? AND target = ?", 
+                               (subject_id, relation, target))
+                changes = conn.total_changes
+                conn.commit()
+                
+                if changes > 0:
+                    return {"status": "success", "deleted_count": changes, "signal": f"SQL_DELETE_CONFIRMED_{datetime.datetime.now().timestamp()}"}
+                else:
+                    return {"status": "not_found", "error": "Triplet did not exist", "signal": "SQL_DELETE_IDLE"}
+        except Exception as e:
+            return {"status": "error", "error": str(e), "signal": "SQL_FAILURE"}
 
     def punish_triplet(self, subject, relation, target):
         """Decreases confidence of a triplet based on negative feedback."""
@@ -529,7 +548,7 @@ class EpisodicLayer:
             results = self.collection.query(
                 query_texts=[concept],
                 n_results=10, # Protect top 10 matches for each core concept
-                include=["ids", "distances"]
+                include=["distances"]
             )
             if results['ids']:
                 for i, dist in zip(results['ids'][0], results['distances'][0]):
@@ -683,13 +702,21 @@ class MemoryManager:
             "category": category
         }
         
-        # 2. Push to heap (Python heapq is a min-heap)
-        # We push a tuple. If importances are equal, it compares keys (strings).
+        # 2. Push to heap
         heapq.heappush(self.importance_heap, (importance, key))
         
         # 3. Check Scarcity
+        ghosted_count = 0
         if len(self.kv_cache) > self.max_size:
-            self.compact_kvcache()
+            ghosted_count = self.compact_kvcache()
+            
+        return {
+            "status": "success",
+            "key": key,
+            "action": "stored_in_working_memory",
+            "ghosted_events": ghosted_count,
+            "signal": f"KV_CACHE_WRITE_CONFIRMED_{datetime.datetime.now().timestamp()}"
+        }
 
     def compact_kvcache(self):
         """
@@ -697,6 +724,7 @@ class MemoryManager:
         When resources (Context/VRAM) are full, valid but less important concepts are summarized (Ghosting)
         instead of being fully forgotten.
         """
+        ghosted_count = 0
         if self.verbose:
             print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Initiating Ghost Protocol...")
         
@@ -725,9 +753,12 @@ class MemoryManager:
 
                 # 4. Evict from Active Cache
                 del self.kv_cache[key_to_evict]
+                ghosted_count += 1 # Increment counter
                 
                 if self.verbose:
                     print(f"   👻 [MemoryManager] Ghosted: '{key_to_evict}' -> '{ghost_summary}'")
+        
+        return ghosted_count
 
     def get_context_string(self):
         """Returns a string representation of Active Memory + Ghost Anchors."""

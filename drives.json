@@ -1,0 +1,8 @@
+{
+  "curiosity": 0.25999999999999956,
+  "knowledge_gap_filling": 0.7,
+  "coherence_seeking": 0.9,
+  "novelty_seeking": 0.7,
+  "social_connection": 0.4,
+  "depth_over_breadth": 0.23999999999999969
+}

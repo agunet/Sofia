@@ -27,47 +27,40 @@ def get_context(browser):
 
 def fetch_and_clean(url, max_chars=12000):
     """
-    Fetches web content using a Persistent Headless Browser + Trafilatura Extraction.
-    
-    Improvements V3:
-    1. Singleton Browser (Speedup).
-    2. Trafilatura (Noise Filter: Ads, Menus, Cookies).
+    Fetches web content and returns a structured Reality Object.
     """
     try:
         browser = get_browser()
-        
-        # Create a fresh context/page for this request
         page = browser.new_page()
         
         try:
-            # Go to URL with timeout
-            # 'domcontentloaded' is faster than 'load' (wait for external resources)
             page.goto(url, timeout=20000, wait_until="domcontentloaded")
-            
-            # Get raw HTML after JS execution
             content_html = page.content()
-            
+            final_url = page.url
         finally:
-            # IMPORTANT: Close only the page, NOT the browser
             page.close()
         
         if content_html:
-            # Extract Main Content (Filter Noise)
-            # include_comments=False gets rid of social garbage
             clean_text = trafilatura.extract(content_html, include_comments=False, output_format="markdown")
             
             if not clean_text:
-                return "⚠️ Error: Trafilatura could not extract main content (Site might be empty or blocked)."
+                return {"status": "error", "error": "Extraction failure (Trafilatura)", "url": url}
 
-            # Truncate
             if len(clean_text) > max_chars:
-                 return clean_text[:max_chars] + f"\n\n... [Content Truncated at {max_chars} chars] ..."
-            return clean_text
+                 clean_text = clean_text[:max_chars] + f"\n\n... [Truncated] ..."
             
-        return "Error: Empty HTML retrieved."
+            return {
+                "status": "success",
+                "url": final_url,
+                "content": clean_text,
+                "length": len(clean_text),
+                "signal": f"WEB_READ_CONFIRMED_{datetime.datetime.now().timestamp()}"
+            }
+            
+        return {"status": "error", "error": "Empty HTML", "url": url}
 
     except Exception as e:
-        return f"Error fetching content: {str(e)}"
+        return {"status": "error", "error": str(e), "url": url}
 
 def search_via_browser(query, max_results=5, verbose=True):
     """

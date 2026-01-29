@@ -18,7 +18,7 @@ Sofía comes with a live Mission Control.
     *   **Force Synthesis:** Button to compress dispersed facts into Wisdom.
 
 ### 2. Deep Reasoning (System 2) 🧠
-*   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Dynamically Spawned Experts** (JIT) tailored to the specific problem. It can even spawn a **Full Legion** of specialists if the problem is complex.
+*   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Multi-Agent JIT Spawning**. The system can autonomously create a specialized "Legion" of experts for complex problems.
 *   **Adversarial Consensus:** Before the final answer, agents enter a **"Critique Round"**. They attack each other's hypotheses searching for logical fallacies. Only arguments that survive the "Fiscal" are used in the final synthesis.
 *   **Autonomous Deep Research:** System 2 has "eyes". It proactively detects information gaps, performs **Autonomous Searches**, selected relevant sources, and **Deep Reads** content to verify facts before answering.
 *   **Transient Swarm:** Agents are created on-demand, solve the task, and vanish. No permanent registry overhead.
@@ -32,57 +32,21 @@ Sofía comes with a live Mission Control.
 *   **Synthesis:** Algorithms compress raw data into abstract rules over time (`/synthesize`).
 *   **Social Strategy:** She analyzes *how* you talk and adapts her style (Concise, Technical, ELI5).
 
-### 4. Generative Dreaming (Autonomy) 🌌
+### 4. Generative Dreaming (Autonomy & Genesis) 🌌
 When idle, Sofía enters **"Dream Mode"**:
 *   **Reflects** on existing memories.
 *   **Searches** the web to fill knowledge gaps.
-*   **Directed Dreaming:** You can steer her curiosity using `/focus <topic>`.
+*   **Limbic System (Intrinsic Motivation):** Her curiosity isn't random. It's driven by `drives.json` (Curiosity, Coherence, Novelty, Depth).
+*   **Directed Agency:** Guided by `objectives.json`, she focuses her research on specific boundaries (e.g., Philosophy of Science) and avoids noise.
+*   **Adaptive Sleep:** She manages her energy, sleeping longer when there's nothing to learn and waking up fast when curiosity peaks.
 
 ---
 
 ## 🛠️ Installation & Requirements
-
-### Prerequisites
-*   Linux (Ubuntu recommended).
-*   Python 3.12+.
-*   NVIDIA GPU (24GB+ VRAM recommended for Qwen 7B).
-
-### Steps
-1.  **Clone:**
-    ```bash
-    git clone https://github.com/agunet/Sofia.git
-    cd Sofia
-    ```
-
-2.  **Install:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
-
-3.  **Launch vLLM (The Brain):**
-    ```bash
-    ./start_vllm.sh
-    ```
-
----
+... [Rest of installation] ...
 
 ## ▶️ Usage
-
-### 1. Start the Voice (Terminal Interface)
-```bash
-python main.py
-```
-This is the main interaction loop. You can talk to her here.
-
-### 2. Start the Dashboard (Web Interface)
-In a separate terminal:
-```bash
-source venv/bin/activate
-python dashboard.py
-```
-Open **http://localhost:5000** in your browser.
+... [Rest of usage] ...
 
 ---
 
@@ -93,6 +57,10 @@ While chatting in `main.py` or using the Dashboard inputs:
 | Command | Description |
 | :--- | :--- |
 | `/focus <topic>` | Forces the dream engine to study a specific topic. |
+| `/drives` | Displays the current state of Sofia's Limbic System (Internal Drives). |
+| `/set_drive <name> <0-1>` | Manually tunes Sofia's motivations (e.g., `/set_drive curiosity 0.9`). |
+| `/current_focus` | Shows the active research boundaries from `objectives.json`. |
+| `/explain_motivation <X>` | Asks Sofia to justify why she's interested in topic X. |
 | `/simulate <what if>` | Runs a high-fidelity simulation of a scenario. |
 | `/synthesize` | Triggers memory compression (Rules Extraction). |
 | `/log` | Toggles verbose logging in the terminal. |
@@ -100,7 +68,7 @@ While chatting in `main.py` or using the Dashboard inputs:
 
 ---
 
-## 📜 Complete Feature List (V2.0)
+## 📜 Complete Feature List (V2.5)
 
 ### Cognitive Core
 - [x] **Hybrid Swarm Reasoning:** Dynamic injection of specialized JIT agents into the expert panel.
@@ -113,17 +81,19 @@ While chatting in `main.py` or using the Dashboard inputs:
 ### Memory & Learning
 - [x] **Weighted Graph:** Nodes have Importance and Confidence scores.
 - [x] **Feedback Loop:** Strong corrections reduce confidence or delete nodes.
-- [x] **Consolidation Total:** Synthesis of facts into principles + Auto-Pruning of the original raw memories.
+- [x] **Consolidation Total:** Synthesis of facts into principles + Auto-Pruning.
 - [x] **Reasoning Cache:** "Muscle Memory" for repeated complex questions.
 - [x] **Semantic Relevance Filter:** Cosine distance pruning to prevent context flooding.
-- [x] **Synaptic Pruning:** Autonomous deletion of weak and core-unrelated memories during sleep.
+- [x] **Synaptic Pruning:** Autonomous deletion of weak memories during sleep.
+- [x] **Ghost Anchors:** Summary-based context retention.
 
-### Autonomy
+### Autonomy & Agency
 - [x] **Directed Dreaming:** Ability to focus the autonomous agent on a topic.
+- [x] **Limbic System:** Intrinsic motivation via Curiosity/Coherence rewards.
+- [x] **Objective-Driven Research:** Filtering topics based on long-term goals.
 - [x] **Mental Laboratory:** Simulation engine for counterfactuals.
-- [x] **Genesis Protocol:** Auto-seeding of memories if the brain is empty.
-- [x] **Strategy Analysis:** Learning of rhetorical rules based on user feedback.
-- [x] **Autonomous Research:** Capability to deep-read full web articles (using Playwright + Markdownify) when snippets aren't enough.
+- [x] **Achievement Tracking:** High-impact discoveries are logged in `achievements.log`.
+- [x] **Autonomous Research:** Capability to deep-read full web articles.
 
 ---
 
