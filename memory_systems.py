@@ -614,9 +614,10 @@ class EpisodicLayer:
 
 # --- Memory Manager (Short-Term Scarcity Layer) ---
 class MemoryManager:
-    def __init__(self, max_size=5, db_path="knowledge_graph.db"): # Small size for testing scarcity
+    def __init__(self, max_size=5, db_path="knowledge_graph.db", verbose=False): # Small size for testing scarcity
         self.max_size = max_size
         self.db_path = db_path
+        self.verbose = verbose
         self.kv_cache = OrderedDict()
         self.importance_heap = [] # Min-heap: (importance, key)
 
@@ -641,7 +642,8 @@ class MemoryManager:
                 cursor.execute("INSERT INTO knowledge_graph (data, priority_flag, category) VALUES (?, ?, ?)", 
                                (str(data), priority_flag, category))
                 conn.commit()
-            print(f"   💾 [MemoryManager] Archived to DB: '{str(data)[:30]}...' ({priority_flag}, {category})")
+            if self.verbose:
+                print(f"   💾 [MemoryManager] Archived to DB: '{str(data)[:30]}...' ({priority_flag}, {category})")
         except Exception as e:
             print(f"   ❌ [MemoryManager] Archiving Failed: {e}")
 
@@ -674,7 +676,8 @@ class MemoryManager:
         Logic: 'Ricardo's Scarcity'.
         When resources (Context/VRAM) are full, valid but less important concepts must die.
         """
-        print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Compacting based on Importance...")
+        if self.verbose:
+            print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Compacting based on Importance...")
         
         while len(self.kv_cache) > self.max_size:
             # Pop the smallest item (Lowest importance)
@@ -697,7 +700,8 @@ class MemoryManager:
                 self._archive_to_db(item_to_archive, "Baja Prioridad", category=cat)
                 
                 del self.kv_cache[key_to_evict]
-                print(f"   👋 Evicted Node: '{key_to_evict}' (Importance: {lowest_importance})")
+                if self.verbose:
+                    print(f"   👋 Evicted Node: '{key_to_evict}' (Importance: {lowest_importance})")
     
     def get_state(self):
         return {k: v['importance'] for k, v in self.kv_cache.items()}

@@ -16,7 +16,8 @@ Sofía incluye un Centro de Mando en tiempo real.
     *   **Síntesis Forzada:** Botón para comprimir hechos dispersos en sabiduría.
 
 ### 2. Razonamiento Profundo (Sistema 2) 🧠
-*   **Razonamiento de Enjambre Híbrido:** Itegra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Expertos Generados Dinámicamente (JIT)** según la necesidad del problema.
+*   **Razonamiento de Enjambre Híbrido:** Integra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Múltiples Expertos Generados Dinámicamente** (Legión JIT) según la complejidad del problema.
+*   **Investigación Profunda Autónoma:** El Sistema 2 tiene "ojos". Detecta proactivamente vacíos de información, realiza **Búsquedas Autónomas**, selecciona las mejores fuentes y **Lee en Profundidad** antes de debatir.
 *   **Enjambre Transitorio:** Los agentes nacen, resuelven y desaparecen. Sin registros persistentes.
 *   **Transparencia:** Puedes ver el pensamiento en vivo (`↳ [Swarm] Invitando a la mesa...`).
 *   **Caché de Razonamiento:** Si resuelve un problema difícil, recuerda la *lógica*. La próxima vez responde al instante (`⚡ [Cache]`).

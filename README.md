@@ -18,9 +18,9 @@ Sofía comes with a live Mission Control.
     *   **Force Synthesis:** Button to compress dispersed facts into Wisdom.
 
 ### 2. Deep Reasoning (System 2) 🧠
-*   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Dynamically Spawned Experts** (JIT) tailored to the specific problem.
+*   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Dynamically Spawned Experts** (JIT) tailored to the specific problem. It can even spawn a **Full Legion** of specialists if the problem is complex.
+*   **Autonomous Deep Research:** System 2 has "eyes". It proactively detects information gaps, performs **Autonomous Searches**, selects relevant sources, and **Deep Reads** content to verify facts before answering.
 *   **Transient Swarm:** Agents are created on-demand, solve the task, and vanish. No permanent registry overhead.
-*   **Transparency:** You see the thinking process live (`↳ [Swarm] Invitando a la mesa...`).
 *   **Reasoning Cache:** If she solves a hard problem, she remembers the *logic*. Next time, the answer is instant (`⚡ [Cache]`).
 *   **Mental Lab:** Can simulate "What If" scenarios (`/simulate`) without confusing them with reality.
 

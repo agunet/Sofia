@@ -129,6 +129,92 @@ class AgentReasoning:
         
         candidates = []
         
+        # [NEW] Web Fetch Context Injection
+        web_context = ""
+        import re
+        # Find all http/https URLs
+        urls = re.findall(r'(https?://[^\s]+)', problem)
+        if urls:
+            print(f"   👀 [AgentReasoning] URL detectada. Leyendo contenido...")
+            import web_reader
+            for url in urls:
+                try:
+                    # Clean URL (remove trailing punctuation often caught by regex)
+                    url = url.rstrip('.,;:)')
+                    print(f"   🌐 [Web Reader] Fetching: {url}")
+                    content = web_reader.fetch_and_clean(url)
+                    web_context += f"\n\n[CONTENIDO DE URL ({url})]:\n{content}\n"
+                except Exception as e:
+                    print(f"   ⚠️ [Web Reader] Error leyendo {url}: {e}")
+        
+        # [NEW] Autonomous Deep Research (Proactive Search)
+        # Ask the model if it needs to search.
+        try:
+            research_prompt = f"""
+            Analiza el siguiente problema. ¿Necesitas buscar información externa en la web (Google/DuckDuckGo) para responderlo con precisión, actualidad o detalles técnicos que no posees?
+            
+            PROBLEMA: {problem}
+            
+            Si es un tema de conocimiento general, lógica o filosofía, responde exactamente: NO
+            Si necesitas buscar algo específico (documentación, noticias, hechos recientes), responde exactamente: SEARCH: <tu consulta de búsqueda optimizada>
+            """
+            
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": research_prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            decision = resp.choices[0].message.content.strip()
+            
+            if decision.startswith("SEARCH:"):
+                import web_reader
+                query = decision.replace("SEARCH:", "").strip()
+                print(f"   🤔 [Reasoning] Decidiendo investigar: '{query}'")
+                
+                # 1. Search
+                results = web_reader.search_via_browser(query, verbose=True)
+                
+                if results:
+                    # 2. Select best links
+                    candidates_str = "\n".join([f"[{i}] {r['title']} - {r['snippet'][:100]}..." for i, r in enumerate(results)])
+                    selection_prompt = f"""
+                    He encontrado estos resultados para '{query}':
+                    
+                    {candidates_str}
+                    
+                    Identifica cuáles son INDISPENSABLES para leer en profundidad.
+                    Responde SOLO con los índices separados por comas (ej: 0, 2) o NONE.
+                    Selecciona máximo 2 para no saturar.
+                    """
+                    
+                    sel_resp = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": selection_prompt}],
+                        temperature=0.1,
+                        max_tokens=20
+                    )
+                    selection = sel_resp.choices[0].message.content.strip()
+                    
+                    indices = []
+                    import re
+                    if "NONE" not in selection:
+                         indices = [int(x) for x in re.findall(r'\d+', selection)]
+                    
+                    # 3. Deep Read
+                    for idx in indices[:2]: # Max 2
+                        if idx < len(results):
+                            target_url = results[idx]['url']
+                            print(f"   📖 [Reasoning] Deep Reading: {target_url}")
+                            try:
+                                content = web_reader.fetch_and_clean(target_url)
+                                web_context += f"\n\n[INVESTIGACIÓN AUTÓNOMA ({target_url})]:\n{content}\n"
+                            except Exception as e:
+                                print(f"   ⚠️ Error leyendo {target_url}: {e}")
+
+        except Exception as e:
+             print(f"   ⚠️ [Reasoning] Error en módulo de investigación: {e}")
+
         # 1. Generate diverse solutions with distinct Personas
         expert_personas = [
             "Eres un matemático logico y estricto. Analiza el problema paso a paso. VERIFICA CADA CÁLCULO.",
@@ -141,13 +227,15 @@ class AgentReasoning:
         try:
             from agent_factory import AgentFactory
             factory = AgentFactory()
-            print(f"   🏭 [Swarm] Buscando especialista para: '{problem[:30]}...'")
-            dynamic_agent = factory.spawn_agent(problem)
-            if dynamic_agent:
-                print(f"   ✨ [Swarm] Invitando a la mesa: {dynamic_agent.get('name', 'Especialista')}")
-                expert_personas.append(dynamic_agent['system_prompt'])
+            print(f"   🏭 [Swarm] Buscando especialistas para: '{problem[:30]}...'")
+            dynamic_agents = factory.spawn_agents(problem)
+            
+            if dynamic_agents:
+                for agent in dynamic_agents:
+                    print(f"   ✨ [Swarm] Invitando a la mesa: {agent.get('name', 'Especialista')}")
+                    expert_personas.append(agent['system_prompt'])
             else:
-                 print("   ⚠️ [Swarm] No se pudo generar especialista. Usando equipo base.")
+                 print("   ⚠️ [Swarm] No se pudo generar especialistas. Usando equipo base.")
         except Exception as e:
             print(f"   ⚠️ [Swarm] Error en fábrica de agentes: {e}")
         
@@ -164,7 +252,10 @@ class AgentReasoning:
         context_msg = ""
         if context:
              context_msg = f"\n[CONTEXTO DE MEMORIA (HECHOS CONOCIDOS)]:\n{context}\n(Usa estos hechos si son relevantes, pero verificálos)."
-
+        
+        # [NEW] Inject Web Context
+        if web_context:
+             context_msg += f"\n\n[CONTEXTO EXTERNO LEÍDO (WEB)]:\n{web_context}\n"
 
         # Ensure we run at least n_attempts, cycling through personas if needed
         for i in range(n_attempts):
@@ -476,6 +567,9 @@ class AgentSearch:
     Agente 2.5: Buscador Web (El Explorador)
     Usa DuckDuckGo para validar hechos o buscar información nueva.
     """
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+
     def search_web(self, query):
         """
         Executes a search using Web Reader (Browser Scraping) for maximum reliability.
@@ -484,7 +578,7 @@ class AgentSearch:
             import web_reader
             
             # Use the new browser-based search
-            results = web_reader.search_via_browser(query, max_results=5)
+            results = web_reader.search_via_browser(query, max_results=5, verbose=self.verbose)
             
             if not results: return "No se encontraron resultados en la web.", []
             
@@ -576,13 +670,22 @@ class AgentMotivation:
     """
     def __init__(self, verbose=False):
         self.processed_logs = set() # Track what we've already analyzed
-        self.verbose = verbose
-        self.verbose = verbose
+        self._verbose = verbose
         # Memory Systems
         self.engram = GraphEngram()
         self.episodic = EpisodicLayer()
-        self.memory_manager = MemoryManager(max_size=10) # Scarcity Layer (Working Memory limit)
+        self.memory_manager = MemoryManager(max_size=10, verbose=verbose) # Scarcity Layer (Working Memory limit)
         self.current_focus = None # Directed Dreaming Target
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, value):
+        self._verbose = value
+        self.memory_manager.verbose = value
+
 
     def set_focus(self, topic):
         self.current_focus = topic

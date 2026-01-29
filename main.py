@@ -113,6 +113,7 @@ def main():
             
             if user_input.lower() in ['log', 'logs']:
                 motivator.verbose = not motivator.verbose
+                searcher.verbose = motivator.verbose # Sync searcher logs
                 status = "ACTIVADOS (Pantalla)" if motivator.verbose else "DESACTIVADOS (Solo Archivo)"
                 print(f"{C.OKBLUE}[System] Logs de sueño {status}{C.ENDC}")
                 continue

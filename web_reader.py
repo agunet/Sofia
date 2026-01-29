@@ -69,7 +69,7 @@ def fetch_and_clean(url, max_chars=12000):
     except Exception as e:
         return f"Error fetching content: {str(e)}"
 
-def search_via_browser(query, max_results=5):
+def search_via_browser(query, max_results=5, verbose=True):
     """
     Performs a search using the DuckDuckGo Search (DDGS) library.
     Strategy: 'Guerrilla Mode' - Uses ddgs library with random delays to avoid rate limits.
@@ -82,7 +82,8 @@ def search_via_browser(query, max_results=5):
         # Guerrilla Tactic: Human Delay
         # Sleep between 2 to 5 seconds to avoid robotic patterns
         delay = random.uniform(2, 5)
-        print(f"🕵️ [Web Reader] Guerrilla Mode: Waiting {delay:.2f}s before search...")
+        if verbose:
+            print(f"🕵️ [Web Reader] Guerrilla Mode: Waiting {delay:.2f}s before search...")
         time.sleep(delay)
 
         # Modifying query to target reliable, bot-friendly sources
