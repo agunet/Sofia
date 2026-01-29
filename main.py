@@ -51,6 +51,7 @@ def main():
     librarian = AgentLibrarian()
     empath = AgentEmpathy()
     motivator = AgentMotivation(verbose=False) # Verbose OFF by default
+    motivator.set_client(client, MODEL_NAME)
     searcher = AgentSearch()
     evolution = AgentEvolution()
     

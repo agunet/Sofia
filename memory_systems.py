@@ -614,12 +614,32 @@ class EpisodicLayer:
 
 # --- Memory Manager (Short-Term Scarcity Layer) ---
 class MemoryManager:
-    def __init__(self, max_size=5, db_path="knowledge_graph.db", verbose=False): # Small size for testing scarcity
+    def __init__(self, max_size=5, db_path="knowledge_graph.db", verbose=False, client=None, model_name="Qwen/Qwen2.5-7B-Instruct"): 
         self.max_size = max_size
         self.db_path = db_path
         self.verbose = verbose
+        self.client = client
+        self.model_name = model_name
         self.kv_cache = OrderedDict()
-        self.importance_heap = [] # Min-heap: (importance, key)
+        self.ghost_cache = {} # [New] Stores "Ghost Anchors" (Summaries) of evicted nodes
+        self.importance_heap = [] 
+
+    def _summarize_node(self, key, content):
+        """Generates a Ghost Anchor (Summary) using LLM if available, else truncates."""
+        if not self.client:
+            return content[:100] + "..." # Fallback
+            
+        try:
+            prompt = f"Resume el siguiente concepto/hecho en UNA sola frase corta y densa para mantenerla en memoria RAM:\n\n'{key}: {content}'"
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=50
+            )
+            return response.choices[0].message.content.strip()
+        except:
+            return content[:100] + "..."
 
     def _archive_to_db(self, data, priority_flag="Baja Prioridad", category="General"):
         """Archives evicted data to the knowledge graph with a priority flag."""
@@ -673,35 +693,59 @@ class MemoryManager:
 
     def compact_kvcache(self):
         """
-        Logic: 'Ricardo's Scarcity'.
-        When resources (Context/VRAM) are full, valid but less important concepts must die.
+        Logic: 'Ricardo's Scarcity' + 'Ghost Anchors'.
+        When resources (Context/VRAM) are full, valid but less important concepts are summarized (Ghosting)
+        instead of being fully forgotten.
         """
         if self.verbose:
-            print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Compacting based on Importance...")
+            print(f"🧹 [MemoryManager] KV Cache Full (> {self.max_size}). Initiating Ghost Protocol...")
         
         while len(self.kv_cache) > self.max_size:
             # Pop the smallest item (Lowest importance)
             lowest_importance, key_to_evict = heapq.heappop(self.importance_heap)
             
-            # Validity Check: The item might have been updated with higher importance later.
-            # In a full valid implementation, we'd handle 'lazy deletion' or update the heap.
-            # Here, we check if the current cache value's importance matches the popped one.
-            # If cache has HIGHER importance, it means this heap entry is stale.
             if key_to_evict in self.kv_cache:
                 current_data = self.kv_cache[key_to_evict]
                 if current_data["importance"] > lowest_importance:
-                    # Stale entry, ignore and try next content
-                    continue
+                    continue # Stale heap entry
                 
-                # It is the valid entry, Evict it.
-                # Archive before deletion
-                item_to_archive = self.kv_cache[key_to_evict]
-                cat = item_to_archive.get("category", "General")
-                self._archive_to_db(item_to_archive, "Baja Prioridad", category=cat)
+                # 1. Archive full content to DB (Long Term Storage)
+                self._archive_to_db(current_data, "Condensed/Ghosted", category=current_data.get("category", "General"))
                 
+                # 2. Generate Ghost Anchor (Summary)
+                original_content = current_data["value"]
+                ghost_summary = self._summarize_node(key_to_evict, original_content)
+                
+                # 3. Store Ghost
+                self.ghost_cache[key_to_evict] = f"👻 [GHOST] {ghost_summary}"
+                if len(self.ghost_cache) > self.max_size * 2: # Limit ghosts too
+                    # Simple FIFO for ghosts if too many
+                    oldest_ghost = next(iter(self.ghost_cache))
+                    del self.ghost_cache[oldest_ghost]
+
+                # 4. Evict from Active Cache
                 del self.kv_cache[key_to_evict]
+                
                 if self.verbose:
-                    print(f"   👋 Evicted Node: '{key_to_evict}' (Importance: {lowest_importance})")
+                    print(f"   👻 [MemoryManager] Ghosted: '{key_to_evict}' -> '{ghost_summary}'")
+
+    def get_context_string(self):
+        """Returns a string representation of Active Memory + Ghost Anchors."""
+        context = []
+        
+        # Active Memories
+        if self.kv_cache:
+            context.append("--- MEMORIA ACTIVA (Alta Resolución) ---")
+            for k, v in self.kv_cache.items():
+                context.append(f"• {k}: {v['value']} (Imp: {v['importance']})")
+        
+        # Ghost Anchors
+        if self.ghost_cache:
+            context.append("\n--- FANTASMAS (Baja Resolución / Contexto Periférico) ---")
+            for k, v in self.ghost_cache.items():
+                context.append(f"• {k}: {v}")
+                
+        return "\n".join(context)
     
     def get_state(self):
         return {k: v['importance'] for k, v in self.kv_cache.items()}

@@ -19,12 +19,14 @@ Sofía comes with a live Mission Control.
 
 ### 2. Deep Reasoning (System 2) 🧠
 *   **Hybrid Swarm Reasoning:** Combines fixed expert personas (Logician, Lateral, Skeptic, Philosopher) with **Dynamically Spawned Experts** (JIT) tailored to the specific problem. It can even spawn a **Full Legion** of specialists if the problem is complex.
-*   **Autonomous Deep Research:** System 2 has "eyes". It proactively detects information gaps, performs **Autonomous Searches**, selects relevant sources, and **Deep Reads** content to verify facts before answering.
+*   **Adversarial Consensus:** Before the final answer, agents enter a **"Critique Round"**. They attack each other's hypotheses searching for logical fallacies. Only arguments that survive the "Fiscal" are used in the final synthesis.
+*   **Autonomous Deep Research:** System 2 has "eyes". It proactively detects information gaps, performs **Autonomous Searches**, selected relevant sources, and **Deep Reads** content to verify facts before answering.
 *   **Transient Swarm:** Agents are created on-demand, solve the task, and vanish. No permanent registry overhead.
 *   **Reasoning Cache:** If she solves a hard problem, she remembers the *logic*. Next time, the answer is instant (`⚡ [Cache]`).
 *   **Mental Lab:** Can simulate "What If" scenarios (`/simulate`) without confusing them with reality.
 
 ### 3. Persistent & Self-Healing Memory 💾
+*   **Ghost Anchors (Infinite Context):** When short-term memory (RAM) is full, specialized nodes are not deleted. They are summarized into **"Ghosts"** (high-density text anchors) that remain in context, preventing amnesia while saving resources.
 *   **Knowledge Graph (SQLite):** Stores facts (`Sofía -> is -> AI`).
 *   **Self-Correction:** If you say "That's wrong", she hunts down the specific memory and punishes its confidence score.
 *   **Synthesis:** Algorithms compress raw data into abstract rules over time (`/synthesize`).

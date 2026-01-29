@@ -17,6 +17,7 @@ Sofía incluye un Centro de Mando en tiempo real.
 
 ### 2. Razonamiento Profundo (Sistema 2) 🧠
 *   **Razonamiento de Enjambre Híbrido:** Integra expertos fijos (Lógico, Lateral, Escéptico, Filósofo) con **Múltiples Expertos Generados Dinámicamente** (Legión JIT) según la complejidad del problema.
+*   **Consenso Adversarial:** Antes de la respuesta final, los agentes entran en una **"Ronda de Crítica"**. Se atacan mutuamente buscando falacias lógicas. Solo los argumentos que sobreviven al "Fiscal" pasan a la síntesis final.
 *   **Investigación Profunda Autónoma:** El Sistema 2 tiene "ojos". Detecta proactivamente vacíos de información, realiza **Búsquedas Autónomas**, selecciona las mejores fuentes y **Lee en Profundidad** antes de debatir.
 *   **Enjambre Transitorio:** Los agentes nacen, resuelven y desaparecen. Sin registros persistentes.
 *   **Transparencia:** Puedes ver el pensamiento en vivo (`↳ [Swarm] Invitando a la mesa...`).
@@ -24,6 +25,7 @@ Sofía incluye un Centro de Mando en tiempo real.
 *   **Laboratorio Mental:** Simula escenarios hipotéticos (`/simulate`) sin confundirlos con la realidad.
 
 ### 3. Memoria Persistente y Auto-Reparable 💾
+*   **Ghost Anchors (Contexto Infinito):** Cuando la memoria RAM se llena, los recuerdos menos usados no se borran. Se comprimen en **"Fantasmas"** (anclajes de texto de alta densidad) que permanecen en el contexto, evitando la amnesia sin saturar la VRAM.
 *   **Grafo de Conocimiento (SQLite):** Guarda hechos (`Sofía -> es -> IA`).
 *   **Auto-Corrección:** Si le dices "Eso es mentira", busca el recuerdo específico y castiga su nivel de confianza.
 *   **Síntesis:** Algoritmos que extraen reglas abstractas de datos repetitivos.

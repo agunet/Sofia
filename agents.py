@@ -314,11 +314,48 @@ class AgentReasoning:
 
         if not candidates: return "Error: No se pudieron generar pensamientos (Lista vacía)."
 
+        # --- ADVERSARIAL CONSENSUS (Phase 2: Critique Round) ---
+        # "Tokenomics of Truth": Before voting, agents attack each other's arguments.
+        critiques = []
+        print(f"\n ⚔️ [Swarm] Iniciando Ronda de Consenso Adversarial (Cross-Examination)...")
+        
+        for i, candidate in enumerate(candidates):
+            # Select a random critic (different persona if possible)
+            critic_persona = expert_personas[(i + 1) % len(expert_personas)]
+            critique_prompt = f"""
+            CRITICA ESTA HIPÓTESIS SEVERAMENTE.
+            Busca:
+            1. Falacias Lógicas (Ad Hominem, Straw Man, Circular).
+            2. Suposiciones no probadas.
+            3. Datos alucinados.
+            
+            HIPÓTESIS A ATACAR:
+            {candidate}
+            
+            Si es sólida, di "SOLIDA". Si no, destruye el argumento en 2 frases.
+            """
+            try:
+                c_response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": critic_persona},
+                        {"role": "user", "content": critique_prompt}
+                    ],
+                    temperature=0.1,
+                    max_tokens=150
+                )
+                critique_text = c_response.choices[0].message.content.strip()
+                critiques.append(critique_text)
+                print(f"   ↳ [Fiscal {i+1}] Veredicto: {critique_text[:60]}...")
+            except:
+                critiques.append("Sin crítica (Error).")
+
         # --- RSA (Recursive Self-Aggregation) Loop ---
         # Instead of a single 'Judge' call, we run an iterative refinement loop.
         
         rsa_rounds = 2 # Number of refinement cycles
         current_candidates = candidates
+        current_critiques = critiques
         current_best_answer = ""
         
         print(f"\n 🔄 [RSA] Iniciando Agregación Recursiva ({rsa_rounds} ciclos)...")
@@ -333,12 +370,13 @@ class AgentReasoning:
             
             PROBLEMA ORIGINAL: {problem}
             
-            CANDIDATOS DISPONIBLES (Hipótesis de expertos o iteraciones previas):
+            CANDIDATOS DISPONIBLES (Con Críticas Adversariales):
             """
             
             for i, c in enumerate(current_candidates):
+                critique = current_critiques[i] if i < len(current_critiques) else "N/A"
                 # Truncate very long candidates to fit context if needed, but usually okay for 4 experts
-                rsa_prompt += f"\n--- CANDIDATO {i+1} ---\n{c}\n"
+                rsa_prompt += f"\n--- CANDIDATO {i+1} ---\n[TESIS]: {c}\n[REFUTACIÓN DEL FISCAL]: {critique}\n"
             
             if is_final_round:
                 instruction = """
@@ -685,7 +723,13 @@ class AgentMotivation:
     def verbose(self, value):
         self._verbose = value
         self.memory_manager.verbose = value
-
+    
+    def set_client(self, client, model_name):
+        """Passes the LLM client down to MemoryManager for Ghost Summarization."""
+        self.client = client
+        self.model_name = model_name
+        self.memory_manager.client = client
+        self.memory_manager.model_name = model_name
 
     def set_focus(self, topic):
         self.current_focus = topic
